@@ -153,6 +153,18 @@
       gate_submit: 'Vstoupit',
       gate_bad: 'Nesprávný kód.',
 
+      // notifications (web push)
+      set_notify: 'Oznámení',
+      notify_hint: 'Dostávej upozornění, když máš tento týden službu.',
+      notify_vapid: 'VAPID veřejný klíč',
+      notify_enable: 'Zapnout oznámení na tomto zařízení',
+      notify_on: 'Oznámení jsou zapnutá ✓',
+      notify_denied: 'Oznámení jsou v prohlížeči zablokována.',
+      notify_unsupported: 'Toto zařízení oznámení nepodporuje.',
+      notify_need_sync: 'Nejprve zapni synchronizaci (Supabase).',
+      notify_need_vapid: 'Zadej VAPID veřejný klíč.',
+      notify_error: 'Oznámení se nepodařilo zapnout.',
+
       // onboarding / help
       help: 'Nápověda',
       tour_skip: 'Přeskočit',
@@ -314,6 +326,18 @@
       gate_desc: 'To access this cell, enter the code the admin gave you.',
       gate_submit: 'Enter',
       gate_bad: 'Wrong code.',
+
+      // notifications (web push)
+      set_notify: 'Notifications',
+      notify_hint: 'Get a heads-up when it is your turn this week.',
+      notify_vapid: 'VAPID public key',
+      notify_enable: 'Enable notifications on this device',
+      notify_on: 'Notifications are on ✓',
+      notify_denied: 'Notifications are blocked in the browser.',
+      notify_unsupported: 'This device does not support notifications.',
+      notify_need_sync: 'Enable sync (Supabase) first.',
+      notify_need_vapid: 'Enter the VAPID public key.',
+      notify_error: 'Could not enable notifications.',
 
       // onboarding / help
       help: 'Help',

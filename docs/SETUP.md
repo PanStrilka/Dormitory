@@ -68,13 +68,32 @@
 
 ## 🔔 Етап 3 — Пуш-сповіщення «твоя черга» (після Етапу 2)
 
-1. Згенеруємо пару **VAPID-ключів** (публічний + приватний). Публічний піде в
-   застосунок, приватний — у **Secrets** (`VAPID_PRIVATE_KEY`). Приватний **не
-   надсилай мені** — або згенеруй сам за моєю інструкцією, або одразу поклади в
-   Secrets.
-2. Я додам у застосунок service worker і кнопку «Увімкнути сповіщення».
-3. Раз на тиждень запланована функція надсилатиме пуш тому, хто цього тижня
-   черговий. (На iPhone пуші працюють, лише якщо додати сайт «на екран Домівки».)
+Клієнт і серверна функція вже готові в репозиторії. Лишається завести VAPID-ключі.
+
+1. **Згенеруй пару VAPID-ключів** (публічний + приватний):
+   - онлайн: <https://vapidkeys.com> (натисни Generate), або
+   - у терміналі: `npx web-push generate-vapid-keys`
+2. **Edge Functions → Secrets** → додай:
+   - `VAPID_PUBLIC_KEY` = публічний ключ
+   - `VAPID_PRIVATE_KEY` = приватний ключ *(секрет — мені не надсилай)*
+   - `VAPID_SUBJECT` = `mailto:твоя@пошта`
+3. Розгорни функцію **[`supabase/functions/notify-duty/index.ts`](../supabase/functions/notify-duty/index.ts)**
+   (Edge Functions → Deploy a new function, назва `notify-duty`).
+4. У застосунку: **Nastavení → Oznámení** → встав **публічний** VAPID-ключ →
+   кожен натискає «🔔 Zapnout oznámení na tomto zařízení».
+5. **Розклад** (щопонеділка о 8:00). У SQL Editor (потрібні розширення `pg_cron`
+   і `pg_net`, увімкни їх у Database → Extensions):
+   ```sql
+   select cron.schedule('bulka-duty', '0 8 * * 1', $$
+     select net.http_post(
+       url := 'https://<TVŮJ-PROJEKT>.supabase.co/functions/v1/notify-duty',
+       headers := jsonb_build_object('Authorization', 'Bearer <SERVICE_ROLE_KEY>')
+     );
+   $$);
+   ```
+
+> На iPhone пуші працюють, лише якщо спершу **додати сайт на екран Домівки**
+> (Safari → Поділитися → На екран «Домівки»).
 
 ---
 

@@ -6,7 +6,7 @@
  * requests (e.g. Supabase) always go to the network. Bump CACHE when files
  * change so old assets are cleaned up.
  */
-var CACHE = 'bulka-v1';
+var CACHE = 'bulka-v2';
 var SHELL = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ var SHELL = [
   './js/points.js',
   './js/expenses.js',
   './js/sync.js',
+  './js/push.js',
   './js/ui.js',
   './js/app.js',
   './icons/icon-256.png',
@@ -44,6 +45,34 @@ self.addEventListener('activate', function (e) {
         if (k !== CACHE) return caches.delete(k);
       }));
     }).then(function () { return self.clients.claim(); })
+  );
+});
+
+// ---- Web push: show the notification and focus the app on tap ----
+self.addEventListener('push', function (e) {
+  var data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) { data = { body: e.data && e.data.text() }; }
+  var title = data.title || 'Bulka';
+  var options = {
+    body: data.body || '',
+    icon: 'icons/icon-256.png',
+    badge: 'icons/icon-256.png',
+    tag: data.tag || 'bulka',
+    data: { url: data.url || './' }
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var target = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if ('focus' in list[i]) return list[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
   );
 });
 

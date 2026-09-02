@@ -336,6 +336,16 @@
       '>Čeština</option><option value="en"' + (DORM.i18n.getLang() === 'en' ? ' selected' : '') +
       '>English</option></select></label></section>' +
 
+      '<section class="card"><h2>' + t('set_notify') + '</h2>' +
+      '<p class="muted sm">' + t('notify_hint') + '</p>' +
+      '<label class="field"><span>' + t('notify_vapid') + '</span>' +
+      '<input type="text" data-act="vapidKey" placeholder="BB…" value="' +
+      esc(st.settings.vapidPublicKey || '') + '"></label>' +
+      '<button class="btn" data-act="notify-enable">🔔 ' + t('notify_enable') + '</button>' +
+      '<div id="notifyMsg" class="muted sm" style="margin-top:8px">' +
+      (DORM.push && DORM.push.status && DORM.push.status() === 'granted' ? t('notify_on') : '') +
+      '</div></section>' +
+
       '<section class="card"><h2>' + t('set_data') + '</h2>' +
       '<p class="muted sm">' + t('set_sync_hint') + '</p>' +
       '<label class="field"><span>' + t('set_sync_url') + '</span>' +
@@ -552,6 +562,8 @@
         S.update(function (s) { s.settings.joinCode = code; });
         // Whoever sets the code (the admin) is trusted on this device.
         try { localStorage.setItem(GATE_KEY, code); } catch (e) {}
+      } else if (el.getAttribute('data-act') === 'vapidKey') {
+        S.update(function (s) { s.settings.vapidPublicKey = el.value.trim(); });
       } else if (el.getAttribute('data-act') === 'startDate') {
         S.update(function (s) { s.settings.startDate = el.value; });
       } else if (el.getAttribute('data-act') === 'currency') {
@@ -604,6 +616,20 @@
       S.update(function (s) { s.members = s.members.filter(function (x) { return x.id !== id; }); });
     },
     'join-open': function () { openJoin(); },
+    'notify-enable': function () {
+      var msg = document.getElementById('notifyMsg');
+      var st = state();
+      if (!DORM.push || !DORM.push.supported()) { if (msg) msg.textContent = t('notify_unsupported'); return; }
+      if (!(st.settings.sync && st.settings.sync.url)) { if (msg) msg.textContent = t('notify_need_sync'); return; }
+      if (!st.settings.vapidPublicKey) { if (msg) msg.textContent = t('notify_need_vapid'); return; }
+      var meName = member(st.settings.me) ? member(st.settings.me).name : null;
+      if (msg) msg.textContent = '…';
+      DORM.push.enable(meName).then(function () {
+        if (msg) msg.textContent = t('notify_on');
+      }).catch(function (e) {
+        if (msg) msg.textContent = e && e.message === 'denied' ? t('notify_denied') : t('notify_error');
+      });
+    },
     'join-submit': function () {
       var st = state();
       var name = (document.getElementById('joinName').value || '').trim();
