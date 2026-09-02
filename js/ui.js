@@ -236,6 +236,9 @@
         '<div class="es muted sm">' + esc((member(e.payer) || {}).name) + ' ' + t('exp_paid_by') +
         ' · ' + among + '×</div></div>' +
         '<div class="ea">' + money(e.amount) + '</div>' +
+        (DORM.receipts && DORM.receipts.enabled()
+          ? '<button class="btn ghost sm" data-act="receipt" data-id="' + e.id + '" title="' +
+            t('receipt_view') + '">📎</button>' : '') +
         '<button class="btn ghost sm" data-act="del-exp" data-id="' + e.id + '">✕</button></div>';
     }).join('');
     hist += '</section>';
@@ -424,8 +427,38 @@
       catOpts + '</select></label>' +
       '<div class="field"><span>' + t('exp_split') + '</span><div class="split-list">' +
       splitBoxes + '</div></div>' +
+      (DORM.receipts && DORM.receipts.enabled()
+        ? '<label class="field"><span>' + t('exp_receipt') + ' · ' + t('exp_receipt_optional') +
+          '</span><input type="file" id="expReceipt" accept="image/*" capture="environment"></label>'
+        : '') +
       '<div class="row gap end"><button class="btn ghost" data-act="modal-close">' + t('cancel') +
       '</button><button class="btn" data-act="exp-save">' + t('exp_save') + '</button></div>');
+  }
+
+  function receiptModal(expenseId) {
+    openModal('<h3>📎 ' + t('receipt_view') + '</h3><p class="muted sm">' +
+      t('receipt_uploading') + '</p>');
+    DORM.receipts.forExpense(expenseId).then(function (rows) {
+      var body;
+      if (!rows.length) body = '<p class="muted">' + t('receipt_none') + '</p>';
+      else body = rows.map(function (r) {
+        var head = '<div class="muted sm">' + t('receipt_status') + ': ' + esc(r.status) +
+          (r.status === 'failed' && r.ai_error ? ' — ' + esc(r.ai_error) : '') + '</div>';
+        var items = r.receipt_items || [];
+        if (items.length) {
+          return head + '<div class="freq-h">' + t('receipt_items') + '</div>' +
+            '<table class="ritems"><tbody>' + items.map(function (it) {
+              return '<tr><td>' + esc(it.name) + '</td><td class="qc">' + (it.qty || 1) +
+                '×</td><td class="ra">' +
+                esc(DORM.expenses.round2(it.total || 0).toLocaleString('cs-CZ')) + '</td></tr>';
+            }).join('') + '</tbody></table>';
+        }
+        return head + (r.status === 'failed'
+          ? '<p class="muted sm">' + t('receipt_failed') + '</p>' : '');
+      }).join('<hr class="rsep">');
+      openModal('<h3>📎 ' + t('receipt_view') + '</h3>' + body +
+        '<div class="row end"><button class="btn" data-act="modal-close">OK</button></div>');
+    });
   }
 
   // ---------- join / verification ----------
@@ -689,15 +722,25 @@
       if (!(amount > 0) || !payer) { return; }
       var split = Array.prototype.slice.call(document.querySelectorAll('.splitM:checked'))
         .map(function (x) { return x.value; });
+      var fileInput = document.getElementById('expReceipt');
+      var file = fileInput && fileInput.files && fileInput.files[0];
       S.update(function (s) {
         DORM.expenses.addExpense(s, { desc: desc, amount: amount, payer: payer, category: cat, split: split });
       });
+      var newId = state().expenses[0] && state().expenses[0].id;
       closeModal();
+      // Optional receipt: upload + AI-parse in the background.
+      if (file && DORM.receipts && DORM.receipts.enabled() && newId) {
+        DORM.receipts.attach(newId, payer, amount, file).then(function (res) {
+          alert(res && res.ok ? t('receipt_parsed') : t('receipt_failed'));
+        }).catch(function () { alert(t('receipt_failed')); });
+      }
     },
     'del-exp': function (el) {
       var id = el.getAttribute('data-id');
       S.update(function (s) { DORM.expenses.removeExpense(s, id); });
     },
+    'receipt': function (el) { receiptModal(el.getAttribute('data-id')); },
     'settle': function (el) {
       if (!confirm(t('exp_settle_confirm'))) return;
       S.update(function (s) {
