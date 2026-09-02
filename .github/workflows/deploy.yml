@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
-# Publishes the static app to GitHub Pages. `configure-pages` with
-# enablement:true switches Pages on automatically the first time this runs,
-# so no manual repo setting is needed.
+# Publishes the static app to GitHub Pages.
+# One-time setup by the repo owner: Settings -> Pages -> Build and deployment
+# -> Source: "GitHub Actions". (GitHub does not let the Actions token enable
+# Pages itself, so this single click is required once.) After that, every push
+# to the branches below deploys automatically.
 
 on:
   push:
@@ -33,8 +35,6 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3

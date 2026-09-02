@@ -54,14 +54,14 @@
 
 ### Варіант Б — опублікувати безкоштовно на GitHub Pages (рекомендовано)
 У репозиторії вже є GitHub Actions workflow (`.github/workflows/deploy.yml`),
-який **сам вмикає Pages і публікує сайт** при кожному пуші.
-1. Переконайся, що для репозиторію увімкнені **Actions** (Settings → Actions → General → *Allow all actions*).
-2. Пуш у гілку `main` або в робочу гілку запускає деплой (вкладка **Actions**).
-3. Готовий сайт з'явиться за адресою виду
-   `https://<твій-нік>.github.io/<репозиторій>/` (для цього репо —
-   `https://panstrilka.github.io/Dormitory/`) — кидай посилання всім сусідам.
+який публікує сайт при кожному пуші. Потрібен **один разовий клік** від власника
+репозиторію (GitHub не дозволяє це зробити автоматично з міркувань безпеки):
 
-> Якщо деплой не запустився автоматично: **Actions → Deploy to GitHub Pages → Run workflow**.
+1. **Settings → Pages → Build and deployment → Source: `GitHub Actions`** (обрати й зберегти).
+2. Все — тепер кожен пуш у `main` чи робочу гілку деплоїть сайт (вкладка **Actions**).
+   Перший деплой можна запустити вручну: **Actions → Deploy to GitHub Pages → Run workflow**.
+3. Готовий сайт з'явиться за адресою
+   `https://panstrilka.github.io/Dormitory/` — кидай посилання всім сусідам.
 
 ---
 
