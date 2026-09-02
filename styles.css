@@ -199,4 +199,13 @@ table.rota .ra { text-align: right; width: 44px; }
 }
 @keyframes up { from { transform: translate(-50%, 40px); opacity: .6; } to { transform: translate(-50%, 0); opacity: 1; } }
 .modal h3 { margin: 0 0 8px; font-size: 16px; }
+.icon-btn { padding: 6px 8px; font-size: 15px; }
+
+/* onboarding tour */
+.tour-step { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .5px; }
+.tour-body { font-size: 14px; color: var(--ink); margin: 8px 0 16px; }
+.tour-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 16px; }
+.tour-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.tour-dots .dot.on { background: var(--brand); }
+.tour-nav { gap: 8px; }
 @media (min-width: 620px) { .modal { bottom: auto; top: 50%; transform: translate(-50%,-50%); border-radius: 20px; } @keyframes up { from{opacity:.6} to{opacity:1} } }

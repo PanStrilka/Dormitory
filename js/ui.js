@@ -37,7 +37,16 @@
   function money(n) {
     return DORM.expenses.round2(n).toLocaleString('cs-CZ') + ' ' + esc(state().settings.currency);
   }
-  function roleName(id) { return t('role_' + id); }
+  function roleName(id) {
+    var rn = state().settings.roomNames || {};
+    if (id === 'ROOM_A') return rn.A || t('role_ROOM_A');
+    if (id === 'ROOM_B') return rn.B || t('role_ROOM_B');
+    return t('role_' + id);
+  }
+  function roomLabel(code) {
+    var rn = state().settings.roomNames || {};
+    return (code === 'A' ? rn.A : rn.B) || t(code === 'A' ? 'set_room_a' : 'set_room_b');
+  }
 
   // ---------- top-level render ----------
   function render() {
@@ -210,7 +219,6 @@
     }).join('') + '</div></section>';
 
     var add = '<section class="card"><h2>' + t('exp_add') + '</h2>' +
-      '<p class="muted sm">' + t('exp_karma_hint') + '</p>' +
       '<button class="btn" data-act="add-exp">➕ ' + t('exp_add') + '</button></section>';
 
     var hist = '<section class="card"><h2>' + t('exp_history') + '</h2>';
@@ -253,7 +261,7 @@
     }).join('');
 
     var rules = '<section class="card"><h2>' + t('lb_rules_title') + '</h2><ul class="rules">' +
-      ['lb_rule_1', 'lb_rule_2', 'lb_rule_3', 'lb_rule_4'].map(function (k) {
+      ['lb_rule_1', 'lb_rule_2', 'lb_rule_3'].map(function (k) {
         return '<li>' + t(k) + '</li>';
       }).join('') + '</ul></section>';
 
@@ -267,8 +275,8 @@
       return '<div class="mrow"><input class="mname" data-act="m-name" data-id="' + m.id +
         '" value="' + esc(m.name) + '" placeholder="' + t('set_member_name') + '">' +
         '<select class="mroom" data-act="m-room" data-id="' + m.id + '">' +
-        '<option value="A"' + (m.room === 'A' ? ' selected' : '') + '>' + t('set_room_a') + '</option>' +
-        '<option value="B"' + (m.room === 'B' ? ' selected' : '') + '>' + t('set_room_b') + '</option>' +
+        '<option value="A"' + (m.room === 'A' ? ' selected' : '') + '>' + esc(roomLabel('A')) + '</option>' +
+        '<option value="B"' + (m.room === 'B' ? ' selected' : '') + '>' + esc(roomLabel('B')) + '</option>' +
         '</select>' +
         '<button class="btn ghost sm" data-act="m-del" data-id="' + m.id + '">🗑</button></div>';
     }).join('');
@@ -284,6 +292,11 @@
       '</div></section>' +
 
       '<section class="card"><h2>' + t('settings_title') + '</h2>' +
+      '<div class="field"><span>' + t('set_rooms') + '</span><div class="row gap">' +
+      '<input type="text" data-act="roomName" data-room="A" value="' + esc(roomLabel('A')) +
+      '" style="flex:1;min-width:0">' +
+      '<input type="text" data-act="roomName" data-room="B" value="' + esc(roomLabel('B')) +
+      '" style="flex:1;min-width:0"></div></div>' +
       '<label class="field"><span>' + t('set_start_date') + '</span>' +
       '<input type="date" data-act="startDate" value="' + esc(st.settings.startDate) + '"></label>' +
       '<label class="field"><span>' + t('set_currency') + '</span>' +
@@ -376,6 +389,42 @@
       '</button><button class="btn" data-act="exp-save">' + t('exp_save') + '</button></div>');
   }
 
+  // ---------- onboarding tour ----------
+  var TOUR_KEY = 'bulka_onboarded_v1';
+  var TOUR_STEPS = ['s1', 's2', 's3', 's4', 's5', 's6'];
+  var tourStep = 0;
+
+  function tourSeen() {
+    try { return localStorage.getItem(TOUR_KEY) === '1'; } catch (e) { return false; }
+  }
+  function markTourSeen() {
+    try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) {}
+  }
+
+  function openTour(step) {
+    tourStep = Math.max(0, Math.min(step || 0, TOUR_STEPS.length - 1));
+    renderTour();
+  }
+  function renderTour() {
+    var s = TOUR_STEPS[tourStep];
+    var last = tourStep === TOUR_STEPS.length - 1;
+    var dots = TOUR_STEPS.map(function (_, i) {
+      return '<span class="dot' + (i === tourStep ? ' on' : '') + '"></span>';
+    }).join('');
+    openModal('<div class="tour">' +
+      '<div class="tour-step">' + (tourStep + 1) + '/' + TOUR_STEPS.length + '</div>' +
+      '<h3>' + t('tour_' + s + '_t') + '</h3>' +
+      '<p class="tour-body">' + t('tour_' + s + '_b') + '</p>' +
+      '<div class="tour-dots">' + dots + '</div>' +
+      '<div class="row between tour-nav">' +
+      '<button class="btn link" data-act="tour-skip">' + t('tour_skip') + '</button>' +
+      '<div class="row gap">' +
+      (tourStep > 0 ? '<button class="btn ghost" data-act="tour-back">' + t('tour_back') + '</button>' : '') +
+      '<button class="btn" data-act="' + (last ? 'tour-done' : 'tour-next') + '">' +
+      (last ? t('tour_done') : t('tour_next')) + '</button>' +
+      '</div></div></div>');
+  }
+
   function weekDateFromKey(wk) {
     // return any date inside that ISO week; use current week's date if it matches
     var parts = wk.split('-W');
@@ -398,8 +447,15 @@
     document.getElementById('langToggle').addEventListener('click', function () {
       var next = DORM.i18n.getLang() === 'cs' ? 'en' : 'cs';
       DORM.i18n.setLang(next);
+      document.documentElement.lang = next;
       S.update(function (s) { s.settings.lang = next; });
     });
+
+    var helpBtn = document.getElementById('helpBtn');
+    if (helpBtn) helpBtn.addEventListener('click', function () { openTour(0); });
+
+    // First visit on this device: show the tour once.
+    if (!tourSeen()) setTimeout(function () { openTour(0); }, 350);
 
     document.body.addEventListener('change', function (e) {
       var el = e.target;
@@ -415,6 +471,12 @@
       } else if (el.getAttribute('data-act') === 'm-room') {
         var id2 = el.getAttribute('data-id');
         S.update(function (s) { var m = s.members.filter(function (x) { return x.id === id2; })[0]; if (m) m.room = el.value; });
+      } else if (el.getAttribute('data-act') === 'roomName') {
+        var rc = el.getAttribute('data-room');
+        S.update(function (s) {
+          if (!s.settings.roomNames) s.settings.roomNames = { A: 'Pokoj 1', B: 'Pokoj 2' };
+          s.settings.roomNames[rc] = el.value || (rc === 'A' ? 'Pokoj 1' : 'Pokoj 2');
+        });
       } else if (el.getAttribute('data-act') === 'startDate') {
         S.update(function (s) { s.settings.startDate = el.value; });
       } else if (el.getAttribute('data-act') === 'currency') {
@@ -451,6 +513,10 @@
   var actions = {
     'goto-settings': function () { currentTab = 'settings'; render(); },
     'modal-close': function () { closeModal(); },
+    'tour-next': function () { openTour(tourStep + 1); },
+    'tour-back': function () { openTour(tourStep - 1); },
+    'tour-skip': function () { markTourSeen(); closeModal(); },
+    'tour-done': function () { markTourSeen(); closeModal(); },
     'week': function (el) {
       var d = +el.getAttribute('data-d');
       if (d === 0) viewDate = new Date();

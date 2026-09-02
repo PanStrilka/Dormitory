@@ -20,6 +20,7 @@
         startDate: '2026-09-01', // Monday-based ISO weeks are computed from here
         currency: 'CZK',
         me: null,   // which member "I am" on this device (highlights my turn)
+        roomNames: { A: 'Pokoj 1', B: 'Pokoj 2' }, // two equal rooms, admin-renamable
         sync: null  // { url, key } when Supabase sync is enabled
       },
       members: [],            // { id, name, room: 'A'|'B', color }

@@ -1,17 +1,16 @@
 /*
- * points.js — karma, tiers and immunity tokens.
+ * points.js — points, tiers and immunity tokens.
  *
- * Points come from three places:
+ * Points come from:
  *   1. Completed checklist items on duty weeks (duties.POINTS by frequency).
- *   2. Buying supplies for the cell (+5 karma per expense the person paid).
- *   3. Manual karma adjustments (e.g. spending an immunity token = -cost).
- * Tiers and tokens are derived from the total, giving the "motivation +
- * privileges" the brief asked for.
+ *   2. Manual adjustments (e.g. spending an immunity token = -cost).
+ * Buying supplies is handled purely in Expenses ("who owes whom") — no points
+ * for it, so nothing pretends to "give money back" outside the settlement.
+ * Tiers and tokens are derived from the total, for motivation + privileges.
  */
 (function (DORM) {
   'use strict';
 
-  var BUY_KARMA = 5;      // karma for buying something for the cell
   var TOKEN_COST = 50;    // points that buy one immunity token
   var TIERS = [
     { id: 'tier_platinum', min: 250, badge: '💎' },
@@ -42,23 +41,12 @@
     return out;
   }
 
-  /** Karma from buying supplies. */
-  function buyKarma(state) {
-    var out = {};
-    state.members.forEach(function (m) { out[m.id] = 0; });
-    state.expenses.forEach(function (e) {
-      if (out[e.payer] != null) out[e.payer] += BUY_KARMA;
-    });
-    return out;
-  }
-
-  /** Total points per member (duties + buying + manual adjustments). */
+  /** Total points per member (duties + manual adjustments). */
   function totals(state) {
     var dp = dutyPoints(state);
-    var bk = buyKarma(state);
     var out = {};
     state.members.forEach(function (m) {
-      out[m.id] = (dp[m.id] || 0) + (bk[m.id] || 0) + (state.karma[m.id] || 0);
+      out[m.id] = (dp[m.id] || 0) + (state.karma[m.id] || 0);
     });
     return out;
   }
@@ -93,7 +81,6 @@
   }
 
   DORM.points = {
-    BUY_KARMA: BUY_KARMA,
     TOKEN_COST: TOKEN_COST,
     TIERS: TIERS,
     totals: totals,
