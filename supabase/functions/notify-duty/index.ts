@@ -9,8 +9,11 @@
 //    VAPID_SUBJECT                         – e.g. mailto:you@example.com
 //  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected automatically.
 //
-//  The rotation math here mirrors js/rotation.js + js/store.js exactly so the
-//  server and the app always agree on who is on duty.
+//  The rotation math here mirrors js/rotation.js + js/store.js so the server
+//  and the app agree on who is on duty. The app computes weeks in the viewer's
+//  local time; this function uses UTC. They agree except within an hour or two
+//  of local Monday midnight, so schedule this well clear of it (the SETUP cron
+//  uses Monday 08:00) to avoid a timezone week-boundary mismatch.
 // ============================================================================
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -108,7 +111,7 @@ Deno.serve(async () => {
 
   // 3) Send a push to every subscription of each on-duty person.
   const { data: subs } = await db.from("push_subscriptions").select("*");
-  let sent = 0, removed = 0;
+  let sent = 0, removed = 0, failed = 0;
   for (const sub of subs || []) {
     const roleList = dutyByName[sub.member_name];
     if (!roleList) continue;
@@ -127,11 +130,17 @@ Deno.serve(async () => {
       if (e && (e.statusCode === 404 || e.statusCode === 410)) {
         await db.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
         removed++;
+      } else {
+        // e.g. 401/403 from a VAPID key mismatch — surface it, don't swallow.
+        failed++;
+        console.error("push failed", sub.member_name, e && (e.statusCode || e.message));
       }
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, sent, removed }), {
+  const result = { ok: failed === 0, sent, removed, failed };
+  console.log("notify-duty", JSON.stringify(result));
+  return new Response(JSON.stringify(result), {
     headers: { "Content-Type": "application/json" },
   });
 });

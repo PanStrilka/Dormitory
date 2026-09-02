@@ -342,9 +342,7 @@
       '<input type="text" data-act="vapidKey" placeholder="BB…" value="' +
       esc(st.settings.vapidPublicKey || '') + '"></label>' +
       '<button class="btn" data-act="notify-enable">🔔 ' + t('notify_enable') + '</button>' +
-      '<div id="notifyMsg" class="muted sm" style="margin-top:8px">' +
-      (DORM.push && DORM.push.status && DORM.push.status() === 'granted' ? t('notify_on') : '') +
-      '</div></section>' +
+      '<div id="notifyMsg" class="muted sm" style="margin-top:8px"></div></section>' +
 
       '<section class="card"><h2>' + t('set_data') + '</h2>' +
       '<p class="muted sm">' + t('set_sync_hint') + '</p>' +

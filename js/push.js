@@ -25,8 +25,12 @@
     return arr;
   }
 
-  function b64(buf) {
-    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+  function keysEqual(buf, arr) {
+    if (!buf) return false;
+    var a = new Uint8Array(buf);
+    if (a.length !== arr.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== arr[i]) return false;
+    return true;
   }
 
   function status() {
@@ -47,11 +51,18 @@
       if (perm !== 'granted') throw new Error('denied');
       return navigator.serviceWorker.ready;
     }).then(function (reg) {
+      var appKey = urlBase64ToUint8Array(vapid);
       return reg.pushManager.getSubscription().then(function (existing) {
-        return existing || reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapid)
-        });
+        function subscribe() {
+          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+        }
+        if (!existing) return subscribe();
+        // Re-subscribe if the VAPID key changed, else the old subscription
+        // would keep failing silently after a key rotation.
+        if (keysEqual(existing.options && existing.options.applicationServerKey, appKey)) {
+          return existing;
+        }
+        return existing.unsubscribe().then(subscribe, subscribe);
       });
     }).then(function (sub) {
       var json = sub.toJSON();
@@ -61,7 +72,10 @@
         p256dh: json.keys && json.keys.p256dh,
         auth: json.keys && json.keys.auth
       };
-      return fetch(sync.url.replace(/\/$/, '') + '/rest/v1/push_subscriptions', {
+      // Upsert on the unique `endpoint` so re-enabling the same device updates
+      // its row instead of hitting the endpoint UNIQUE constraint (409).
+      return fetch(sync.url.replace(/\/$/, '') +
+        '/rest/v1/push_subscriptions?on_conflict=endpoint', {
         method: 'POST',
         headers: {
           'apikey': sync.key, 'Authorization': 'Bearer ' + sync.key,
