@@ -54,6 +54,23 @@
     return (code === 'A' ? rn.A : rn.B) || t(code === 'A' ? 'set_room_a' : 'set_room_b');
   }
 
+  // ---------- theme (system / light / dark), stored per device ----------
+  var THEME_KEY = 'bulka_theme';
+  function getTheme() {
+    try { return localStorage.getItem(THEME_KEY) || 'system'; } catch (e) { return 'system'; }
+  }
+  function applyTheme(mode) {
+    if (mode === 'light' || mode === 'dark') document.documentElement.setAttribute('data-theme', mode);
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  function updateThemeBtn() {
+    var b = document.getElementById('themeBtn');
+    if (!b) return;
+    var mode = getTheme();
+    b.textContent = mode === 'light' ? '☀️' : mode === 'dark' ? '🌙' : '🌓';
+    b.title = t('theme_label') + ': ' + t('theme_' + mode);
+  }
+
   // ---------- top-level render ----------
   function render() {
     if (!mainEl) return;
@@ -61,6 +78,7 @@
     document.getElementById('appTagline').textContent = t('app_tagline');
     renderTabs();
     renderMePicker();
+    updateThemeBtn();
     if (currentTab === 'today') mainEl.innerHTML = renderToday();
     else if (currentTab === 'roster') mainEl.innerHTML = renderRoster();
     else if (currentTab === 'expenses') mainEl.innerHTML = renderExpenses();
@@ -649,6 +667,18 @@
 
     var helpBtn = document.getElementById('helpBtn');
     if (helpBtn) helpBtn.addEventListener('click', function () { openTour(0); });
+
+    var themeBtn = document.getElementById('themeBtn');
+    if (themeBtn) {
+      updateThemeBtn();
+      themeBtn.addEventListener('click', function () {
+        var order = ['system', 'light', 'dark'];
+        var next = order[(order.indexOf(getTheme()) + 1) % order.length];
+        applyTheme(next);
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+        updateThemeBtn();
+      });
+    }
 
     // Boot: a locked cell asks for its code first, otherwise show the tour once.
     setTimeout(function () {

@@ -36,6 +36,10 @@
       t_hour: 'před {n} h',
       t_yesterday: 'včera',
       t_days: 'před {n} dny',
+      theme_label: 'Motiv',
+      theme_system: 'Systém',
+      theme_light: 'Světlý',
+      theme_dark: 'Tmavý',
 
       // roles (room names come from settings; these are fallbacks)
       role_ROOM_A: 'Pokoj 1',
@@ -247,6 +251,10 @@
       t_hour: '{n} h ago',
       t_yesterday: 'yesterday',
       t_days: '{n} days ago',
+      theme_label: 'Theme',
+      theme_system: 'System',
+      theme_light: 'Light',
+      theme_dark: 'Dark',
 
       role_ROOM_A: 'Room 1',
       role_ROOM_B: 'Room 2',

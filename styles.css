@@ -13,12 +13,19 @@
   --shadow: 0 1px 3px rgba(0,0,0,.08), 0 6px 20px rgba(0,0,0,.05);
   --radius: 16px;
 }
+/* Dark palette: applied by the OS default (unless the user forced light),
+   and by an explicit data-theme="dark" choice (which also wins over the OS). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #121714; --card: #1b241f; --ink: #e8efeb; --muted: #93a49d;
     --line: #2b352f; --brand: #4fae86; --brand-2: #57bd91;
     --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
   }
+}
+:root[data-theme="dark"] {
+  --bg: #121714; --card: #1b241f; --ink: #e8efeb; --muted: #93a49d;
+  --line: #2b352f; --brand: #4fae86; --brand-2: #57bd91;
+  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
