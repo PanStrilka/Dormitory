@@ -13,10 +13,11 @@
   'use strict';
 
   function membersOf(state, scope) {
-    var list = state.members.slice();
+    // Only verified members take part in the rota.
+    var list = state.members.filter(function (m) { return m.status === 'verified'; });
     if (scope === 'roomA') return list.filter(function (m) { return m.room === 'A'; });
     if (scope === 'roomB') return list.filter(function (m) { return m.room === 'B'; });
-    return list; // all
+    return list; // all verified
   }
 
   function mod(i, n) { return ((i % n) + n) % n; }

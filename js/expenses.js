@@ -19,7 +19,8 @@
 
     state.expenses.forEach(function (e) {
       var among = (e.split && e.split.length) ? e.split
-        : state.members.map(function (m) { return m.id; });
+        : state.members.filter(function (m) { return m.status === 'verified'; })
+            .map(function (m) { return m.id; });
       among = among.filter(function (id) { return bal[id] != null; });
       if (among.length === 0) return;
       var share = e.amount / among.length;

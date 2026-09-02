@@ -23,6 +23,12 @@
   function member(id) {
     return state().members.filter(function (m) { return m.id === id; })[0] || null;
   }
+  function verified() {
+    return state().members.filter(function (m) { return m.status === 'verified'; });
+  }
+  function pending() {
+    return state().members.filter(function (m) { return m.status === 'pending'; });
+  }
   function initials(name) {
     var p = (name || '?').trim().split(/\s+/);
     return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase();
@@ -80,7 +86,7 @@
   function renderMePicker() {
     var box = document.getElementById('mePicker');
     if (!box) return;
-    var ms = state().members;
+    var ms = verified();
     if (!ms.length) { box.innerHTML = ''; return; }
     box.innerHTML = '<select id="meSelect" title="I am"><option value="">👤 ?</option>' +
       ms.map(function (m) {
@@ -92,7 +98,7 @@
   // ---------- TODAY ----------
   function renderToday() {
     var st = state();
-    if (!st.members.length) return emptyHint();
+    if (!verified().length) return emptyHint();
     var roster = DORM.rotation.rosterForWeek(st, viewDateToday());
     var monthly = DORM.store.isMonthlyWeek(viewDateToday());
     var wk = DORM.store.isoWeekKey(viewDateToday());
@@ -152,7 +158,7 @@
   // ---------- ROSTER ----------
   function renderRoster() {
     var st = state();
-    if (!st.members.length) return emptyHint();
+    if (!verified().length) return emptyHint();
     var roster = DORM.rotation.rosterForWeek(st, viewDate);
     var wk = DORM.store.isoWeekKey(viewDate);
     var counts = DORM.rotation.fairnessCounts(st, new Date(), 12);
@@ -180,7 +186,7 @@
 
     html += '<section class="card"><h2>' + t('fairness_title') + '</h2>' +
       '<p class="muted sm">' + t('fairness_hint') + '</p>' +
-      st.members.slice().sort(function (a, b) { return counts[b.id] - counts[a.id]; })
+      verified().slice().sort(function (a, b) { return counts[b.id] - counts[a.id]; })
         .map(function (m) {
           var c = counts[m.id] || 0;
           return '<div class="fair-row">' + avatar(m, 22) +
@@ -195,7 +201,7 @@
   // ---------- EXPENSES ----------
   function renderExpenses() {
     var st = state();
-    if (!st.members.length) return emptyHint();
+    if (!verified().length) return emptyHint();
     var suggestions = DORM.expenses.settleSuggestions(st);
     var bal = DORM.expenses.balances(st);
 
@@ -210,7 +216,7 @@
         '<button class="btn sm" data-act="settle" data-from="' + s.from + '" data-to="' + s.to +
         '" data-amt="' + s.amount + '">' + t('exp_settle') + '</button></div>';
     }).join('');
-    settle += '<div class="bal-grid">' + st.members.map(function (m) {
+    settle += '<div class="bal-grid">' + verified().map(function (m) {
       var b = bal[m.id] || 0;
       var cls = b > 0.01 ? 'pos' : (b < -0.01 ? 'neg' : '');
       return '<div class="bal-cell ' + cls + '">' + avatar(m, 22) +
@@ -224,7 +230,7 @@
     var hist = '<section class="card"><h2>' + t('exp_history') + '</h2>';
     if (!st.expenses.length) hist += '<p class="muted">' + t('exp_none') + '</p>';
     else hist += st.expenses.map(function (e) {
-      var among = (e.split && e.split.length) ? e.split.length : st.members.length;
+      var among = (e.split && e.split.length) ? e.split.length : verified().length;
       return '<div class="exp-row"><div class="ei">' + catIcon(e.category) + '</div>' +
         '<div class="ed"><div class="et">' + esc(e.desc || t('cat_other')) + '</div>' +
         '<div class="es muted sm">' + esc((member(e.payer) || {}).name) + ' ' + t('exp_paid_by') +
@@ -244,7 +250,7 @@
   // ---------- LEADERBOARD ----------
   function renderLeaderboard() {
     var st = state();
-    if (!st.members.length) return emptyHint();
+    if (!verified().length) return emptyHint();
     var lb = DORM.points.leaderboard(st);
     var me = st.settings.me;
 
@@ -271,7 +277,8 @@
   // ---------- SETTINGS ----------
   function renderSettings() {
     var st = state();
-    var rows = st.members.map(function (m, i) {
+    var vs = verified(), ps = pending();
+    var rows = vs.map(function (m) {
       return '<div class="mrow"><input class="mname" data-act="m-name" data-id="' + m.id +
         '" value="' + esc(m.name) + '" placeholder="' + t('set_member_name') + '">' +
         '<select class="mroom" data-act="m-room" data-id="' + m.id + '">' +
@@ -281,15 +288,37 @@
         '<button class="btn ghost sm" data-act="m-del" data-id="' + m.id + '">🗑</button></div>';
     }).join('');
 
+    // Admin panel: people waiting to be approved.
+    var pendingCard = '';
+    if (ps.length) {
+      pendingCard = '<section class="card"><h2>' + t('verify_pending_title') + ' (' + ps.length +
+        ')</h2><p class="muted sm">' + t('pending_hint') + '</p>' +
+        ps.map(function (m) {
+          return '<div class="mrow pend">' + avatar(m, 24) +
+            '<span class="pn">' + esc(m.name || '—') + ' · ' + esc(roomLabel(m.room)) + '</span>' +
+            '<button class="btn sm" data-act="approve" data-id="' + m.id + '">' + t('verify_approve') + '</button>' +
+            '<button class="btn ghost sm" data-act="reject" data-id="' + m.id + '">' + t('verify_reject') + '</button>' +
+            '</div>';
+        }).join('') + '</section>';
+    }
+
     var sync = st.settings.sync || {};
     return '<section class="card"><h2>' + t('set_members') + '</h2>' + rows +
       '<div class="row gap">' +
-      (st.members.length < 8
+      (vs.length < 8
         ? '<button class="btn" data-act="m-add">➕ ' + t('set_add_member') + '</button>'
         : '<span class="muted sm">' + t('set_max_members') + '</span>') +
       (st.members.length === 0
         ? '<button class="btn ghost" data-act="seed">' + t('set_seed') + '</button>' : '') +
       '</div></section>' +
+      pendingCard +
+
+      '<section class="card"><h2>' + t('set_access') + '</h2>' +
+      '<label class="field"><span>' + t('join_code') + '</span>' +
+      '<input type="text" data-act="joinCode" value="' + esc(st.settings.joinCode || '') +
+      '" placeholder="—" style="max-width:220px"></label>' +
+      '<p class="muted sm">' + t('join_code_hint') + '</p>' +
+      '<button class="btn ghost" data-act="join-open">👋 ' + t('join_button') + '</button></section>' +
 
       '<section class="card"><h2>' + t('settings_title') + '</h2>' +
       '<div class="field"><span>' + t('set_rooms') + '</span><div class="row gap">' +
@@ -327,8 +356,10 @@
 
   function emptyHint() {
     return '<section class="card"><p class="muted big">👋 ' + t('no_members_hint') + '</p>' +
-      '<button class="btn" data-act="goto-settings">⚙️ ' + t('tab_settings') + '</button> ' +
-      '<button class="btn ghost" data-act="seed">' + t('set_seed') + '</button></section>';
+      '<div class="row gap">' +
+      '<button class="btn" data-act="goto-settings">⚙️ ' + t('tab_settings') + '</button>' +
+      '<button class="btn ghost" data-act="join-open">👋 ' + t('join_button') + '</button>' +
+      '<button class="btn ghost" data-act="seed">' + t('set_seed') + '</button></div></section>';
   }
 
   // ---------- modal ----------
@@ -343,7 +374,7 @@
     var st = state();
     var d = weekDateFromKey(wk);
     var cur = DORM.rotation.assignee(st, roleId, d);
-    var opts = st.members.map(function (m) {
+    var opts = verified().map(function (m) {
       return '<option value="' + m.id + '"' + (cur && cur.id === m.id ? ' selected' : '') + '>' +
         esc(m.name) + '</option>';
     }).join('');
@@ -363,14 +394,14 @@
 
   function addExpenseModal() {
     var st = state();
-    var payerOpts = st.members.map(function (m) {
+    var payerOpts = verified().map(function (m) {
       return '<option value="' + m.id + '"' + (st.settings.me === m.id ? ' selected' : '') + '>' +
         esc(m.name) + '</option>';
     }).join('');
     var catOpts = DORM.expenses.CATEGORIES.map(function (c) {
       return '<option value="' + c + '">' + t(c) + '</option>';
     }).join('');
-    var splitBoxes = st.members.map(function (m) {
+    var splitBoxes = verified().map(function (m) {
       return '<label class="chk"><input type="checkbox" class="splitM" value="' + m.id +
         '" checked> ' + esc(m.name) + '</label>';
     }).join('');
@@ -389,6 +420,39 @@
       '</button><button class="btn" data-act="exp-save">' + t('exp_save') + '</button></div>');
   }
 
+  // ---------- join / verification ----------
+  var GATE_KEY = 'bulka_gate_ok'; // stores the cell code this device unlocked with
+
+  function gateNeeded() {
+    var code = (state().settings.joinCode || '').trim();
+    if (!code) return false;
+    try { return localStorage.getItem(GATE_KEY) !== code; } catch (e) { return false; }
+  }
+  function openGate() {
+    openModal('<div class="tour"><h3>🔒 ' + t('gate_title') + '</h3>' +
+      '<p class="muted sm">' + t('gate_desc') + '</p>' +
+      '<label class="field"><input type="text" id="gateInput" placeholder="' + t('join_code') +
+      '"></label><div id="gateErr" class="err-msg" hidden></div>' +
+      '<div class="row end"><button class="btn" data-act="gate-submit">' + t('gate_submit') +
+      '</button></div></div>');
+  }
+  function openJoin() {
+    var st = state();
+    var roomOpts = '<option value="A">' + esc(roomLabel('A')) + '</option>' +
+      '<option value="B">' + esc(roomLabel('B')) + '</option>';
+    openModal('<div><h3>👋 ' + t('join_title') + '</h3>' +
+      '<p class="muted sm">' + t('join_desc') + '</p>' +
+      '<label class="field"><span>' + t('join_name') + '</span>' +
+      '<input type="text" id="joinName" placeholder="' + t('join_name') + '"></label>' +
+      '<label class="field"><span>' + t('join_room') + '</span>' +
+      '<select id="joinRoom">' + roomOpts + '</select></label>' +
+      (st.settings.joinCode ? '<label class="field"><span>' + t('join_code_enter') + '</span>' +
+        '<input type="text" id="joinCodeIn" placeholder="' + t('join_code_enter') + '"></label>' : '') +
+      '<div id="joinErr" class="err-msg" hidden></div>' +
+      '<div class="row gap end"><button class="btn ghost" data-act="modal-close">' + t('cancel') +
+      '</button><button class="btn" data-act="join-submit">' + t('join_submit') + '</button></div></div>');
+  }
+
   // ---------- onboarding tour ----------
   var TOUR_KEY = 'bulka_onboarded_v1';
   var TOUR_STEPS = ['s1', 's2', 's3', 's4', 's5', 's6'];
@@ -399,6 +463,9 @@
   }
   function markTourSeen() {
     try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) {}
+  }
+  function maybeTour() {
+    if (!tourSeen()) openTour(0);
   }
 
   function openTour(step) {
@@ -454,8 +521,11 @@
     var helpBtn = document.getElementById('helpBtn');
     if (helpBtn) helpBtn.addEventListener('click', function () { openTour(0); });
 
-    // First visit on this device: show the tour once.
-    if (!tourSeen()) setTimeout(function () { openTour(0); }, 350);
+    // Boot: a locked cell asks for its code first, otherwise show the tour once.
+    setTimeout(function () {
+      if (gateNeeded()) openGate();
+      else maybeTour();
+    }, 350);
 
     document.body.addEventListener('change', function (e) {
       var el = e.target;
@@ -477,6 +547,11 @@
           if (!s.settings.roomNames) s.settings.roomNames = { A: 'Pokoj 1', B: 'Pokoj 2' };
           s.settings.roomNames[rc] = el.value || (rc === 'A' ? 'Pokoj 1' : 'Pokoj 2');
         });
+      } else if (el.getAttribute('data-act') === 'joinCode') {
+        var code = el.value.trim();
+        S.update(function (s) { s.settings.joinCode = code; });
+        // Whoever sets the code (the admin) is trusted on this device.
+        try { localStorage.setItem(GATE_KEY, code); } catch (e) {}
       } else if (el.getAttribute('data-act') === 'startDate') {
         S.update(function (s) { s.settings.startDate = el.value; });
       } else if (el.getAttribute('data-act') === 'currency') {
@@ -517,6 +592,51 @@
     'tour-back': function () { openTour(tourStep - 1); },
     'tour-skip': function () { markTourSeen(); closeModal(); },
     'tour-done': function () { markTourSeen(); closeModal(); },
+    'approve': function (el) {
+      var id = el.getAttribute('data-id');
+      S.update(function (s) {
+        var m = s.members.filter(function (x) { return x.id === id; })[0];
+        if (m) m.status = 'verified';
+      });
+    },
+    'reject': function (el) {
+      var id = el.getAttribute('data-id');
+      S.update(function (s) { s.members = s.members.filter(function (x) { return x.id !== id; }); });
+    },
+    'join-open': function () { openJoin(); },
+    'join-submit': function () {
+      var st = state();
+      var name = (document.getElementById('joinName').value || '').trim();
+      var room = document.getElementById('joinRoom').value;
+      var err = document.getElementById('joinErr');
+      if (!name) { return; }
+      if (st.settings.joinCode) {
+        var code = (document.getElementById('joinCodeIn').value || '').trim();
+        if (code !== st.settings.joinCode) {
+          err.textContent = t('join_bad_code'); err.hidden = false; return;
+        }
+        try { localStorage.setItem(GATE_KEY, code); } catch (e) {}
+      }
+      S.update(function (s) {
+        s.members.push({
+          id: DORM.store.uid(), name: name, room: room,
+          color: nextColor(s.members.length), status: 'pending'
+        });
+      });
+      closeModal();
+      alert(t('join_sent'));
+    },
+    'gate-submit': function () {
+      var code = (document.getElementById('gateInput').value || '').trim();
+      var err = document.getElementById('gateErr');
+      if (code && code === (state().settings.joinCode || '').trim()) {
+        try { localStorage.setItem(GATE_KEY, code); } catch (e) {}
+        closeModal();
+        maybeTour();
+      } else {
+        err.textContent = t('gate_bad'); err.hidden = false;
+      }
+    },
     'week': function (el) {
       var d = +el.getAttribute('data-d');
       if (d === 0) viewDate = new Date();
@@ -575,7 +695,8 @@
         s.members.push({
           id: DORM.store.uid(), name: '',
           room: roomA <= s.members.length - roomA ? 'A' : 'B',
-          color: nextColor(s.members.length)
+          color: nextColor(s.members.length),
+          status: 'verified' // added by the admin, so already verified
         });
       });
     },
@@ -608,7 +729,8 @@
   function seed(s) {
     var names = ['Adam', 'Bára', 'Cyril', 'Dáša', 'Emil', 'Filip', 'Gábina', 'Honza'];
     s.members = names.map(function (n, i) {
-      return { id: DORM.store.uid(), name: n, room: i < 4 ? 'A' : 'B', color: nextColor(i) };
+      return { id: DORM.store.uid(), name: n, room: i < 4 ? 'A' : 'B',
+        color: nextColor(i), status: 'verified' };
     });
   }
 

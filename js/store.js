@@ -21,6 +21,7 @@
         currency: 'CZK',
         me: null,   // which member "I am" on this device (highlights my turn)
         roomNames: { A: 'Pokoj 1', B: 'Pokoj 2' }, // two equal rooms, admin-renamable
+        joinCode: '', // code new roommates enter to join (empty = open)
         sync: null  // { url, key } when Supabase sync is enabled
       },
       members: [],            // { id, name, room: 'A'|'B', color }
@@ -52,6 +53,10 @@
     });
     Object.keys(d.settings).forEach(function (k) {
       if (!(k in s.settings)) s.settings[k] = d.settings[k];
+    });
+    // Members added before verification existed count as already verified.
+    (s.members || []).forEach(function (m) {
+      if (!m.status) m.status = 'verified';
     });
     return s;
   }

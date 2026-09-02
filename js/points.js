@@ -66,10 +66,10 @@
     return Math.max(0, earned - used);
   }
 
-  /** Ranked leaderboard rows. */
+  /** Ranked leaderboard rows (verified members only). */
   function leaderboard(state) {
     var tot = totals(state);
-    return state.members.map(function (m) {
+    return state.members.filter(function (m) { return m.status === 'verified'; }).map(function (m) {
       var pts = tot[m.id] || 0;
       return {
         member: m,
