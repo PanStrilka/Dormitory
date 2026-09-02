@@ -6,7 +6,7 @@
  * requests (e.g. Supabase) always go to the network. Bump CACHE when files
  * change so old assets are cleaned up.
  */
-var CACHE = 'bulka-v3';
+var CACHE = 'bulka-v4';
 var SHELL = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ var SHELL = [
   './js/rotation.js',
   './js/points.js',
   './js/expenses.js',
+  './js/stats.js',
   './js/sync.js',
   './js/push.js',
   './js/receipts.js',

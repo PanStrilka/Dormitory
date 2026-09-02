@@ -65,6 +65,7 @@
     else if (currentTab === 'roster') mainEl.innerHTML = renderRoster();
     else if (currentTab === 'expenses') mainEl.innerHTML = renderExpenses();
     else if (currentTab === 'leaderboard') mainEl.innerHTML = renderLeaderboard();
+    else if (currentTab === 'overview') mainEl.innerHTML = renderOverview();
     else if (currentTab === 'settings') mainEl.innerHTML = renderSettings();
   }
 
@@ -74,6 +75,7 @@
       ['roster', t('tab_roster'), '🔁'],
       ['expenses', t('tab_expenses'), '💰'],
       ['leaderboard', t('tab_leaderboard'), '🏆'],
+      ['overview', t('tab_overview'), '📊'],
       ['settings', t('tab_settings'), '⚙️']
     ];
     document.getElementById('nav').innerHTML = tabs.map(function (x) {
@@ -275,6 +277,92 @@
       }).join('') + '</ul></section>';
 
     return '<section class="card"><h2>' + t('lb_title') + '</h2>' + rows + '</section>' + rules;
+  }
+
+  // ---------- OVERVIEW (stats + activity) ----------
+  function maxOf(arr) { return Math.max.apply(null, arr.concat([1])); }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    var min = Math.floor((Date.now() - ts) / 60000);
+    if (min < 1) return t('t_now');
+    if (min < 60) return t('t_min').replace('{n}', min);
+    var h = Math.floor(min / 60);
+    if (h < 24) return t('t_hour').replace('{n}', h);
+    var d = Math.floor(h / 24);
+    if (d === 1) return t('t_yesterday');
+    if (d < 7) return t('t_days').replace('{n}', d);
+    var dt = new Date(ts);
+    return dt.getDate() + '.' + (dt.getMonth() + 1) + '.';
+  }
+
+  function activityLine(ev) {
+    var who = ev.by || ev.from || ev.payer;
+    var name = member(who) ? member(who).name : '—';
+    var icon, text;
+    if (ev.type === 'duty') {
+      icon = '✅'; text = t('act_did_duty') + ' · ' + esc(roleName(ev.role));
+    } else if (ev.type === 'swap') {
+      var toN = member(ev.to) ? member(ev.to).name : '—';
+      icon = '🔄'; text = t('act_swap') + ' · ' + esc(roleName(ev.role)) + ' → ' + esc(toN);
+    } else if (ev.type === 'expense') {
+      icon = '💰'; text = t('act_expense') + ' · ' + esc(ev.desc || '') + ' (' + money(ev.amount) + ')';
+    } else {
+      var toN2 = member(ev.to) ? member(ev.to).name : '—';
+      icon = '🤝'; text = t('act_settle') + ' → ' + esc(toN2) + ' (' + money(ev.amount) + ')';
+    }
+    return '<div class="act-row"><span class="ai">' + icon + '</span>' +
+      '<div class="ad"><div class="at"><b>' + esc(name) + '</b> ' + text + '</div>' +
+      '<div class="muted sm">' + timeAgo(ev.ts) + '</div></div></div>';
+  }
+
+  function renderOverview() {
+    var st = state();
+    if (!verified().length) return emptyHint();
+    var vs = verified();
+    var duties = DORM.stats.dutiesThisMonth(st);
+    var maxDuty = maxOf(vs.map(function (m) { return duties[m.id] || 0; }));
+    var spend = DORM.stats.spendingThisMonth(st);
+    var swaps = DORM.stats.swapCounts(st);
+    var acts = DORM.stats.activity(st, 15);
+
+    var dutiesCard = '<section class="card"><h2>📊 ' + t('ov_month_duties') + '</h2>' +
+      vs.slice().sort(function (a, b) { return (duties[b.id] || 0) - (duties[a.id] || 0); })
+        .map(function (m) {
+          var c = duties[m.id] || 0;
+          return '<div class="stat-row">' + avatar(m, 22) + '<span class="sn">' + esc(m.name) + '</span>' +
+            '<span class="sbar"><span style="width:' + (c / maxDuty * 100) + '%;background:' +
+            esc(m.color) + '"></span></span><span class="sv">' + c + '</span></div>';
+        }).join('') + '</section>';
+
+    var cats = Object.keys(spend.byCat);
+    var maxCat = maxOf(cats.map(function (c) { return spend.byCat[c]; }));
+    var spendCard = '<section class="card"><h2>💰 ' + t('ov_spending') + '</h2>' +
+      '<div class="big-total">' + t('ov_spending_total') + ': <b>' + money(spend.total) + '</b></div>' +
+      (cats.length ? cats.sort(function (a, b) { return spend.byCat[b] - spend.byCat[a]; })
+        .map(function (c) {
+          return '<div class="stat-row"><span class="ci">' + catIcon(c) + '</span>' +
+            '<span class="sn">' + t(c) + '</span>' +
+            '<span class="sbar"><span class="cbar" style="width:' +
+            (spend.byCat[c] / maxCat * 100) + '%"></span></span>' +
+            '<span class="sv">' + money(spend.byCat[c]) + '</span></div>';
+        }).join('') : '<p class="muted sm">—</p>') + '</section>';
+
+    var hasSwaps = (st.swaps || []).length > 0;
+    var swapCard = hasSwaps ? '<section class="card"><h2>🔄 ' + t('ov_swaps') + '</h2>' +
+      vs.map(function (m) {
+        var s = swaps[m.id]; if (!s || (!s.given && !s.taken)) return '';
+        return '<div class="stat-row simple">' + avatar(m, 22) +
+          '<span class="sn">' + esc(m.name) + '</span>' +
+          '<span class="sv2">' + t('ov_given') + ' ' + s.given + ' · ' + t('ov_taken') + ' ' + s.taken +
+          '</span></div>';
+      }).join('') + '</section>' : '';
+
+    var actCard = '<section class="card"><h2>🕑 ' + t('ov_activity') + '</h2>' +
+      (acts.length ? acts.map(activityLine).join('') : '<p class="muted sm">' + t('ov_none') + '</p>') +
+      '</section>';
+
+    return dutiesCard + spendCard + swapCard + actCard;
   }
 
   // ---------- SETTINGS ----------
@@ -623,6 +711,7 @@
       var d = weekDateFromKey(wk);
       var a = DORM.rotation.assignee(s, role, d);
       c.by = a ? a.id : null;
+      c.ts = Date.now();
       if (Object.keys(c.items).length === 0) delete s.completions[k];
       else s.completions[k] = c;
     });
