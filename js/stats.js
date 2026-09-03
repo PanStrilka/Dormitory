@@ -76,6 +76,9 @@
     (state.settlements || []).forEach(function (s) {
       ev.push({ ts: s.ts, type: 'settle', from: s.from, to: s.to, amount: s.amount });
     });
+    (state.purchases || []).forEach(function (p) {
+      ev.push({ ts: p.ts, type: 'buy', by: p.by, item: p.item });
+    });
     ev.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return ev.slice(0, limit || 15);
   }

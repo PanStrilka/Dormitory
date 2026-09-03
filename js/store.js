@@ -31,6 +31,8 @@
       swaps: [],              // audit log of hand-overs
       expenses: [],           // { id, payer, amount, desc, category, split:[ids], ts }
       settlements: [],        // { id, from, to, amount, ts }
+      shopping: [],           // { id, key?|name, category, status:'ok'|'needed', flaggedBy, flaggedTs, lastBoughtBy, lastBoughtTs }
+      purchases: [],          // { id, item, by, ts, expenseId? } — log for fairness + activity
       karma: {},              // memberId -> manual karma adjustments (buying bonuses, tokens)
       tokensUsed: {}          // memberId -> count of immunity tokens spent
     };

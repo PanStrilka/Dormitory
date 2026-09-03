@@ -82,6 +82,7 @@
     if (currentTab === 'today') mainEl.innerHTML = renderToday();
     else if (currentTab === 'roster') mainEl.innerHTML = renderRoster();
     else if (currentTab === 'expenses') mainEl.innerHTML = renderExpenses();
+    else if (currentTab === 'shopping') mainEl.innerHTML = renderShopping();
     else if (currentTab === 'leaderboard') mainEl.innerHTML = renderLeaderboard();
     else if (currentTab === 'overview') mainEl.innerHTML = renderOverview();
     else if (currentTab === 'settings') mainEl.innerHTML = renderSettings();
@@ -92,6 +93,7 @@
       ['today', t('tab_today'), '📅'],
       ['roster', t('tab_roster'), '🔁'],
       ['expenses', t('tab_expenses'), '💰'],
+      ['shopping', t('tab_shopping'), '🛒'],
       ['leaderboard', t('tab_leaderboard'), '🏆'],
       ['overview', t('tab_overview'), '📊'],
       ['settings', t('tab_settings'), '⚙️']
@@ -297,6 +299,84 @@
     return '<section class="card"><h2>' + t('lb_title') + '</h2>' + rows + '</section>' + rules;
   }
 
+  // ---------- SHOPPING (supplies list + inventory) ----------
+  function shRow(it, needed) {
+    var who = needed && it.flaggedBy && member(it.flaggedBy) ? member(it.flaggedBy).name : null;
+    return '<div class="sh-row' + (needed ? ' need' : '') + '"><span class="ci">' +
+      catIcon(it.category) + '</span>' +
+      '<div class="shd"><div class="shn">' + esc(DORM.shopping.displayName(it)) + '</div>' +
+      (who ? '<div class="muted sm">' + t('sh_flagged_by') + ' ' + esc(who) + '</div>' : '') + '</div>' +
+      (needed
+        ? '<button class="btn sm" data-act="sh-bought" data-id="' + it.id + '">' + t('sh_bought') + '</button>'
+        : '<button class="btn ghost sm" data-act="sh-flag" data-id="' + it.id + '">' + t('sh_flag') + '</button>') +
+      '<button class="btn ghost sm" data-act="sh-del" data-id="' + it.id + '">✕</button></div>';
+  }
+
+  function renderShopping() {
+    var st = state();
+    if (!verified().length) return emptyHint();
+    var needed = DORM.shopping.needed(st);
+    var stock = DORM.shopping.inStock(st);
+
+    var neededCard = '<section class="card"><h2>🛒 ' + t('sh_needed') + '</h2>' +
+      (needed.length ? needed.map(function (it) { return shRow(it, true); }).join('')
+        : '<p class="ok">' + t('sh_none_needed') + '</p>') + '</section>';
+
+    var chips = DORM.shopping.COMMON.map(function (c) {
+      return '<button class="chip" data-act="sh-quick" data-key="' + c.key + '">+ ' + t(c.key) + '</button>';
+    }).join('');
+    var addCard = '<section class="card"><h2>' + t('sh_quick') + '</h2><div class="chips">' + chips +
+      '</div><button class="btn ghost mt" data-act="sh-add">➕ ' + t('sh_add_custom') + '</button></section>';
+
+    var stockCard = '<section class="card"><h2>✅ ' + t('sh_stock') + '</h2>' +
+      (stock.length ? stock.map(function (it) { return shRow(it, false); }).join('')
+        : '<p class="muted sm">' + t('sh_none') + '</p>') + '</section>';
+
+    var counts = DORM.shopping.buyCounts(st);
+    var totalBuys = Object.keys(counts).reduce(function (a, k) { return a + counts[k]; }, 0);
+    var maxb = maxOf(verified().map(function (m) { return counts[m.id] || 0; }));
+    var fairCard = totalBuys ? '<section class="card"><h2>🤝 ' + t('sh_fair') + '</h2>' +
+      verified().slice().sort(function (a, b) { return (counts[b.id] || 0) - (counts[a.id] || 0); })
+        .map(function (m) {
+          var c = counts[m.id] || 0;
+          return '<div class="stat-row">' + avatar(m, 22) + '<span class="sn">' + esc(m.name) + '</span>' +
+            '<span class="sbar"><span style="width:' + (c / maxb * 100) + '%;background:' +
+            esc(m.color) + '"></span></span><span class="sv">' + c + '</span></div>';
+        }).join('') + '</section>' : '';
+
+    return neededCard + addCard + stockCard + fairCard;
+  }
+
+  function shoppingAddModal() {
+    var catOpts = DORM.expenses.CATEGORIES.map(function (c) {
+      return '<option value="' + c + '">' + t(c) + '</option>';
+    }).join('');
+    openModal('<h3>➕ ' + t('sh_add_custom') + '</h3>' +
+      '<label class="field"><span>' + t('sh_item_name') + '</span>' +
+      '<input type="text" id="shName" placeholder="' + t('sh_item_name') + '"></label>' +
+      '<label class="field"><span>' + t('exp_category') + '</span><select id="shCat">' + catOpts +
+      '</select></label>' +
+      '<div class="row gap end"><button class="btn ghost" data-act="modal-close">' + t('cancel') +
+      '</button><button class="btn" data-act="sh-add-save">' + t('sh_add') + '</button></div>');
+  }
+
+  function boughtModal(id) {
+    var st = state();
+    var it = (st.shopping || []).filter(function (x) { return x.id === id; })[0];
+    var buyerOpts = verified().map(function (m) {
+      return '<option value="' + m.id + '"' + (st.settings.me === m.id ? ' selected' : '') + '>' +
+        esc(m.name) + '</option>';
+    }).join('');
+    openModal('<h3>🛒 ' + t('sh_bought_title') + (it ? ' — ' + esc(DORM.shopping.displayName(it)) : '') + '</h3>' +
+      '<label class="field"><span>' + t('sh_buyer') + '</span><select id="shBuyer">' + buyerOpts +
+      '</select></label>' +
+      '<label class="field"><span>' + t('sh_amount_opt') + ' (' + esc(st.settings.currency) + ')</span>' +
+      '<input type="number" id="shAmount" inputmode="decimal" min="0" step="0.01"></label>' +
+      '<div class="row gap end"><button class="btn ghost" data-act="modal-close">' + t('cancel') +
+      '</button><button class="btn" data-act="sh-bought-save" data-id="' + id + '">' + t('sh_confirm') +
+      '</button></div>');
+  }
+
   // ---------- OVERVIEW (stats + activity) ----------
   function maxOf(arr) { return Math.max.apply(null, arr.concat([1])); }
 
@@ -325,6 +405,8 @@
       icon = '🔄'; text = t('act_swap') + ' · ' + esc(roleName(ev.role)) + ' → ' + esc(toN);
     } else if (ev.type === 'expense') {
       icon = '💰'; text = t('act_expense') + ' · ' + esc(ev.desc || '') + ' (' + money(ev.amount) + ')';
+    } else if (ev.type === 'buy') {
+      icon = '🛒'; text = t('act_bought') + ' · ' + esc(ev.item || '');
     } else {
       var toN2 = member(ev.to) ? member(ev.to).name : '—';
       icon = '🤝'; text = t('act_settle') + ' → ' + esc(toN2) + ' (' + money(ev.amount) + ')';
@@ -860,6 +942,38 @@
       S.update(function (s) { DORM.expenses.removeExpense(s, id); });
     },
     'receipt': function (el) { receiptModal(el.getAttribute('data-id')); },
+    'sh-quick': function (el) {
+      var key = el.getAttribute('data-key');
+      S.update(function (s) { DORM.shopping.addCommon(s, key, s.settings.me); });
+    },
+    'sh-add': function () { shoppingAddModal(); },
+    'sh-add-save': function () {
+      var name = (document.getElementById('shName').value || '').trim();
+      var cat = document.getElementById('shCat').value;
+      if (!name) return;
+      S.update(function (s) {
+        DORM.shopping.addItem(s, { name: name, category: cat, by: s.settings.me, status: 'needed' });
+      });
+      closeModal();
+    },
+    'sh-flag': function (el) {
+      var id = el.getAttribute('data-id');
+      S.update(function (s) { DORM.shopping.setStatus(s, id, 'needed', s.settings.me); });
+    },
+    'sh-del': function (el) {
+      var id = el.getAttribute('data-id');
+      S.update(function (s) { DORM.shopping.removeItem(s, id); });
+    },
+    'sh-bought': function (el) { boughtModal(el.getAttribute('data-id')); },
+    'sh-bought-save': function (el) {
+      var id = el.getAttribute('data-id');
+      var buyer = document.getElementById('shBuyer').value;
+      var amount = parseFloat(document.getElementById('shAmount').value);
+      S.update(function (s) {
+        DORM.shopping.markBought(s, id, buyer, amount > 0 ? amount : 0);
+      });
+      closeModal();
+    },
     'settle': function (el) {
       if (!confirm(t('exp_settle_confirm'))) return;
       S.update(function (s) {
