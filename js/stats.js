@@ -79,6 +79,11 @@
     (state.purchases || []).forEach(function (p) {
       ev.push({ ts: p.ts, type: 'buy', by: p.by, item: p.item });
     });
+    var expDesc = {};
+    (state.expenses || []).forEach(function (e) { expDesc[e.id] = e.desc; });
+    (state.comments || []).forEach(function (c) {
+      ev.push({ ts: c.ts, type: 'comment', by: c.by, desc: expDesc[c.expenseId] || '', text: c.text });
+    });
     ev.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return ev.slice(0, limit || 15);
   }

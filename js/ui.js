@@ -68,6 +68,33 @@
       img.src = url;
     });
   }
+
+  // ---- comment unread tracking (per device, not synced) ----
+  var CSEEN_KEY = 'bulka_comments_seen';
+  function loadSeen() {
+    try { return JSON.parse(localStorage.getItem(CSEEN_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function markSeen(expenseId) {
+    var list = DORM.comments.forExpense(state(), expenseId);
+    var newest = list.length ? list[list.length - 1].ts : Date.now();
+    var m = loadSeen();
+    if ((m[expenseId] || 0) < newest) { m[expenseId] = newest; }
+    try { localStorage.setItem(CSEEN_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  // A thread is "unread" when its newest comment is not mine and newer than
+  // what this device last saw.
+  function isUnread(expenseId) {
+    var list = DORM.comments.forExpense(state(), expenseId);
+    if (!list.length) return false;
+    var last = list[list.length - 1];
+    var me = state().settings.me;
+    if (me && last.by === me) return false;
+    return last.ts > (loadSeen()[expenseId] || 0);
+  }
+  function anyUnread() {
+    return (state().expenses || []).some(function (e) { return isUnread(e.id); });
+  }
   function prefersReducedMotion() {
     try { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch (e) { return false; }
@@ -147,11 +174,13 @@
       ['expenses', t('tab_expenses'), '💰'],
       ['profile', t('tab_profile'), '👤']
     ];
+    var expUnread = anyUnread();
     document.getElementById('nav').innerHTML = tabs.map(function (x) {
       var active = currentTab === x[0];
+      var dot = (x[0] === 'expenses' && expUnread) ? '<span class="dot"></span>' : '';
       return '<button class="tab' + (active ? ' active' : '') + '" data-tab="' + x[0] +
         '" aria-current="' + (active ? 'page' : 'false') + '">' +
-        '<span class="ti">' + x[2] + '</span><span class="tl">' + esc(x[1]) + '</span></button>';
+        '<span class="ti">' + x[2] + dot + '</span><span class="tl">' + esc(x[1]) + '</span></button>';
     }).join('');
   }
 
@@ -311,6 +340,7 @@
         (DORM.receipts && DORM.receipts.enabled()
           ? '<button class="btn ghost sm" data-act="receipt" data-id="' + e.id + '" title="' +
             t('receipt_view') + '">📎</button>' : '') +
+        commentBtn(e.id) +
         '<button class="btn ghost sm" data-act="del-exp" data-id="' + e.id + '">✕</button></div>';
     }).join('');
     hist += '</section>';
@@ -355,6 +385,14 @@
 
   function catIcon(c) {
     return { cat_hygiene: '🧼', cat_cleaning: '🧴', cat_kitchen: '🍽️', cat_other: '📦' }[c] || '📦';
+  }
+
+  // 💬 button for an expense row: shows the comment count and an unread dot.
+  function commentBtn(expenseId) {
+    var n = DORM.comments.count(state(), expenseId);
+    return '<button class="btn ghost sm cbtn" data-act="comments" data-id="' + expenseId +
+      '" title="' + t('cm_title') + '">💬' + (n ? ' <span class="cn">' + n + '</span>' : '') +
+      (isUnread(expenseId) ? '<span class="dot"></span>' : '') + '</button>';
   }
 
   // ---------- LEADERBOARD ----------
@@ -509,6 +547,10 @@
       icon = '💰'; text = t('act_expense') + ' · ' + esc(ev.desc || '') + ' (' + money(ev.amount) + ')';
     } else if (ev.type === 'buy') {
       icon = '🛒'; text = t('act_bought') + ' · ' + esc(ev.item || '');
+    } else if (ev.type === 'comment') {
+      var snip = (ev.text || '').slice(0, 60) + ((ev.text || '').length > 60 ? '…' : '');
+      icon = '💬'; text = t('act_comment') + (ev.desc ? ' · ' + esc(ev.desc) : '') +
+        ' · „' + esc(snip) + '“';
     } else {
       var toN2 = member(ev.to) ? member(ev.to).name : '—';
       icon = '🤝'; text = t('act_settle') + ' → ' + esc(toN2) + ' (' + money(ev.amount) + ')';
@@ -782,6 +824,49 @@
       esc((member(rec.to) || {}).name) + ' · ' + money(rec.amount) + '</div>' +
       proofBadge(rec) + body +
       '<div class="row end"><button class="btn" data-act="modal-close">OK</button></div>');
+  }
+
+  // Comment thread for one purchase (expense). Read + write, chat-style.
+  function commentsModal(expenseId) {
+    var st = state();
+    var e = (st.expenses || []).filter(function (x) { return x.id === expenseId; })[0];
+    if (!e) return;
+    var list = DORM.comments.forExpense(st, expenseId);
+    var me = st.settings.me;
+    var thread = list.length ? list.map(function (c) {
+      var mine = me && c.by === me;
+      return '<div class="cm-row' + (mine ? ' mine' : '') + '">' + avatar(member(c.by), 26) +
+        '<div class="cm-body"><div class="cm-head"><b>' + esc((member(c.by) || {}).name || '—') +
+        '</b> <span class="muted sm">' + timeAgo(c.ts) + '</span></div>' +
+        '<div class="cm-text">' + esc(c.text) + '</div></div>' +
+        (mine ? '<button class="btn ghost xs" data-act="comment-del" data-id="' + c.id +
+          '" data-exp="' + expenseId + '" title="' + t('exp_delete') + '">✕</button>' : '') +
+        '</div>';
+    }).join('') : '<p class="muted sm">' + t('cm_none') + '</p>';
+
+    var compose = me
+      ? '<div class="cm-compose"><textarea id="cmText" rows="2" maxlength="1000" placeholder="' +
+        t('cm_placeholder') + '"></textarea>' +
+        '<button class="btn" data-act="comment-add" data-id="' + expenseId + '">' +
+        t('cm_send') + '</button></div>'
+      : '<p class="muted sm">' + t('cm_need_me') + '</p>';
+
+    openModal('<h3>💬 ' + t('cm_title') + '</h3>' +
+      '<div class="cm-subject muted sm">' + catIcon(e.category) + ' ' +
+      esc(e.desc || t('cat_other')) + ' · ' + money(e.amount) + ' · ' +
+      esc((member(e.payer) || {}).name || '—') + '</div>' +
+      '<div class="cm-thread">' + thread + '</div>' + compose +
+      '<div class="row end mt"><button class="btn ghost" data-act="modal-close">' +
+      t('cancel') + '</button></div>');
+
+    // Opening the thread clears its unread state on this device; refresh the
+    // tab badge and row dots behind the modal (render leaves the modal alone).
+    markSeen(expenseId);
+    render();
+    var box = document.querySelector('.cm-thread');
+    if (box) box.scrollTop = box.scrollHeight;
+    var ta = document.getElementById('cmText');
+    if (ta) ta.focus();
   }
 
   function receiptModal(expenseId) {
@@ -1113,9 +1198,28 @@
     },
     'del-exp': function (el) {
       var id = el.getAttribute('data-id');
-      S.update(function (s) { DORM.expenses.removeExpense(s, id); });
+      S.update(function (s) {
+        DORM.expenses.removeExpense(s, id);
+        DORM.comments.removeForExpense(s, id);
+      });
     },
     'receipt': function (el) { receiptModal(el.getAttribute('data-id')); },
+    'comments': function (el) { commentsModal(el.getAttribute('data-id')); },
+    'comment-add': function (el) {
+      var expenseId = el.getAttribute('data-id');
+      var ta = document.getElementById('cmText');
+      var text = ta ? ta.value : '';
+      if (!(text || '').trim()) return;
+      S.update(function (s) { DORM.comments.add(s, expenseId, s.settings.me, text); });
+      markSeen(expenseId);          // my own message counts as read
+      commentsModal(expenseId);     // refresh the thread with the new comment
+    },
+    'comment-del': function (el) {
+      var id = el.getAttribute('data-id');
+      var expenseId = el.getAttribute('data-exp');
+      S.update(function (s) { DORM.comments.remove(s, id); });
+      commentsModal(expenseId);
+    },
     'sh-quick': function (el) {
       var key = el.getAttribute('data-key');
       S.update(function (s) { DORM.shopping.addCommon(s, key, s.settings.me); });

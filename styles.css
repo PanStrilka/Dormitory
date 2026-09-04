@@ -90,6 +90,7 @@ html { scroll-behavior: smooth; }
 .bottom-nav .tab .ti {
   font-size: 22px; line-height: 1; filter: grayscale(.35) opacity(.8);
   transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .2s;
+  position: relative;
 }
 .bottom-nav .tab .tl { transition: opacity .2s; opacity: .85; }
 .bottom-nav .tab.active { color: var(--brand); }
@@ -212,6 +213,22 @@ table.rota .ra { text-align: right; width: 44px; }
 .proof-badge.neg { color: var(--danger); }
 .proof-badge.muted { color: var(--muted); }
 .proof-img { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10px; margin: 10px 0; background: var(--bg); }
+
+/* comments on purchases */
+.cbtn { position: relative; }
+.cbtn .cn { font-weight: 700; font-size: 11px; }
+.dot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--card); }
+.bottom-nav .tab .ti .dot { top: -3px; right: -8px; border-color: var(--card); }
+.cm-subject { padding: 2px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.cm-thread { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.cm-row { display: flex; gap: 8px; align-items: flex-start; }
+.cm-row.mine { flex-direction: row-reverse; text-align: right; }
+.cm-row .cm-body { flex: 1; min-width: 0; background: var(--bg); border-radius: 12px; padding: 7px 10px; }
+.cm-row.mine .cm-body { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+.cm-head { font-size: 12px; margin-bottom: 2px; }
+.cm-text { font-size: 13.5px; white-space: pre-wrap; word-break: break-word; }
+.cm-compose { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+.cm-compose textarea { flex: 1; resize: vertical; min-height: 40px; font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: inherit; }
 
 /* leaderboard */
 .lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }

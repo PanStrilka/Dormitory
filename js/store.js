@@ -30,6 +30,7 @@
       completions: {},        // "2026-W36|KITCHEN" -> { items: {taskId:true}, by: memberId }
       swaps: [],              // audit log of hand-overs
       expenses: [],           // { id, payer, amount, desc, category, split:[ids], ts }
+      comments: [],           // { id, expenseId, by, text, ts } — comments on purchases
       settlements: [],        // { id, from, to, amount, ts }
       shopping: [],           // { id, key?|name, category, status:'ok'|'needed', flaggedBy, flaggedTs, lastBoughtBy, lastBoughtTs }
       purchases: [],          // { id, item, by, ts, expenseId? } — log for fairness + activity

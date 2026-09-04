@@ -174,6 +174,14 @@
       settle_proof_attached: 'doklad přiložen',
       settle_proof_remote: 'Doklad je uložen v cloudu.',
 
+      // comments on purchases
+      cm_title: 'Komentáře',
+      cm_none: 'Zatím žádné komentáře. Buď první!',
+      cm_placeholder: 'Napiš komentář…',
+      cm_send: 'Odeslat',
+      cm_need_me: 'Nahoře vyber, kdo jsi, abys mohl(a) komentovat.',
+      act_comment: 'okomentoval(a) nákup',
+
       // leaderboard / privileges
       lb_title: 'Body a výhody',
       lb_points: 'bodů',
@@ -436,6 +444,14 @@
       settle_proof_pending: 'checking…',
       settle_proof_attached: 'proof attached',
       settle_proof_remote: 'Proof is stored in the cloud.',
+
+      // comments on purchases
+      cm_title: 'Comments',
+      cm_none: 'No comments yet. Be the first!',
+      cm_placeholder: 'Write a comment…',
+      cm_send: 'Send',
+      cm_need_me: 'Pick who you are at the top to comment.',
+      act_comment: 'commented on a purchase',
 
       lb_title: 'Points & perks',
       lb_points: 'pts',
