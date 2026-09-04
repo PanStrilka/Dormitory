@@ -42,9 +42,10 @@ button:focus:not(:focus-visible) { outline: none; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg); color: var(--ink); line-height: 1.45;
-  padding-bottom: 40px; -webkit-text-size-adjust: 100%;
+  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0)); -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
 }
+html { scroll-behavior: smooth; }
 
 /* header */
 .app-header {
@@ -71,19 +72,30 @@ body {
 .sync-dot.error { background: #e74c3c; }
 .sync-dot.off { background: rgba(255,255,255,.35); }
 
-/* nav */
-.nav {
-  position: sticky; top: 0; z-index: 10; display: flex; gap: 4px;
-  padding: 8px; background: var(--card); border-bottom: 1px solid var(--line);
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
+/* bottom navigation (Duolingo-style) */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; gap: 2px; justify-content: space-around;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0));
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-top: 1px solid var(--line); box-shadow: 0 -4px 20px rgba(0,0,0,.06);
 }
-.tab {
-  flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px;
+.bottom-nav .tab {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
   border: 0; background: transparent; color: var(--muted); cursor: pointer;
-  padding: 6px 10px; border-radius: 12px; font-size: 11px; min-width: 64px;
+  padding: 6px 2px 4px; font-size: 10.5px; font-weight: 700; border-radius: 14px;
+  -webkit-tap-highlight-color: transparent; transition: color .2s;
 }
-.tab .ti { font-size: 18px; }
-.tab.active { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); font-weight: 600; }
+.bottom-nav .tab .ti {
+  font-size: 22px; line-height: 1; filter: grayscale(.35) opacity(.8);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .2s;
+}
+.bottom-nav .tab .tl { transition: opacity .2s; opacity: .85; }
+.bottom-nav .tab.active { color: var(--brand); }
+.bottom-nav .tab.active .ti { transform: translateY(-3px) scale(1.25); filter: none; }
+.bottom-nav .tab.active .tl { opacity: 1; }
+.bottom-nav .tab:active .ti { transform: scale(.88); }
 
 /* layout */
 .main { max-width: 720px; margin: 0 auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
@@ -108,7 +120,8 @@ body {
   border: 0; background: var(--brand); color: #fff; padding: 10px 14px;
   border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer;
 }
-.btn:active { transform: translateY(1px); }
+.btn { transition: transform .12s ease, background .2s ease, filter .2s ease; }
+.btn:active { transform: scale(.95); }
 .btn.ghost { background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); }
 .btn.link { background: none; color: var(--brand); padding: 4px 8px; }
 .btn.danger { background: var(--danger); }
@@ -269,4 +282,52 @@ table.rota .ra { text-align: right; width: 44px; }
   padding: 7px 12px; font-size: 13px; cursor: pointer; }
 .chip:active { transform: translateY(1px); }
 .chip:hover { border-color: var(--brand); color: var(--brand); }
+.chip { transition: transform .12s ease, border-color .2s, color .2s; }
+.chip:active { transform: scale(.94); }
+
+/* ===== Motion design (Duolingo-style) ===== */
+/* staggered card entrance on every view change */
+@keyframes cardIn { from { opacity: 0; transform: translateY(12px) scale(.99); } to { opacity: 1; transform: none; } }
+.main > .card, .main > .segmented {
+  animation: cardIn .34s cubic-bezier(.22,1,.36,1) both;
+}
+.main > *:nth-child(2) { animation-delay: .04s; }
+.main > *:nth-child(3) { animation-delay: .08s; }
+.main > *:nth-child(4) { animation-delay: .12s; }
+.main > *:nth-child(5) { animation-delay: .16s; }
+.main > *:nth-child(n+6) { animation-delay: .19s; }
+
+/* segmented control (Profile hub) */
+.segmented { display: flex; gap: 4px; background: var(--line); border-radius: 16px; padding: 4px; }
+.segmented .seg {
+  flex: 1; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-weight: 700; font-size: 13px; padding: 9px 6px; border-radius: 12px;
+  transition: color .2s, background .2s, box-shadow .2s, transform .12s;
+}
+.segmented .seg.active { background: var(--card); color: var(--brand); box-shadow: var(--shadow); }
+.segmented .seg:active { transform: scale(.96); }
+
+/* "it's your turn" gentle pulse */
+@keyframes youPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.badge.you { animation: youPulse 2.4s ease-in-out infinite; }
+
+/* progress bar fills smoothly */
+.progress .bar { transition: width .5s cubic-bezier(.22,1,.36,1); }
+
+/* celebration confetti burst */
+.fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+.confetti {
+  position: absolute; font-size: 20px; will-change: transform, opacity;
+  animation: confettiBurst .9s cubic-bezier(.15,.6,.3,1) forwards;
+}
+@keyframes confettiBurst {
+  0% { opacity: 0; transform: translate(0,0) scale(.4) rotate(0); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1) rotate(var(--r)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main > .card, .main > .segmented, .badge.you, .confetti { animation: none !important; }
+  .bottom-nav .tab .ti, .btn, .chip, .segmented .seg { transition: none !important; }
+}
 @media (min-width: 620px) { .modal { bottom: auto; top: 50%; transform: translate(-50%,-50%); border-radius: 20px; } @keyframes up { from{opacity:.6} to{opacity:1} } }

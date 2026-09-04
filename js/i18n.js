@@ -18,6 +18,8 @@
       tab_leaderboard: 'Body',
       tab_overview: 'Přehled',
       tab_settings: 'Nastavení',
+      tab_profile: 'Profil',
+      nav_roster: 'Služby',
 
       sh_needed: 'Potřebujeme koupit',
       sh_stock: 'Zásoby (máme doma)',
@@ -261,6 +263,8 @@
       tab_leaderboard: 'Points',
       tab_overview: 'Overview',
       tab_settings: 'Settings',
+      tab_profile: 'Profile',
+      nav_roster: 'Chores',
 
       sh_needed: 'Need to buy',
       sh_stock: 'In stock',

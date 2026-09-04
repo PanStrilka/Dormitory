@@ -11,6 +11,7 @@
   var state = function () { return S.get(); };
 
   var currentTab = 'today';
+  var profileSub = 'leaderboard'; // sub-view inside the Profile hub
   var viewDate = new Date();      // for roster navigation
   var modalEl, mainEl;
 
@@ -43,6 +44,34 @@
   function money(n) {
     return DORM.expenses.round2(n).toLocaleString('cs-CZ') + ' ' + esc(state().settings.currency);
   }
+  function prefersReducedMotion() {
+    try { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  }
+  // Confetti burst from a point (x,y). Used when a duty checklist hits 100%.
+  function celebrate(x, y) {
+    if (prefersReducedMotion()) return;
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var emojis = ['🎉', '✨', '🧽', '⭐', '💚', '🫧'];
+    var ox = x != null ? x : window.innerWidth / 2;
+    var oy = y != null ? y : window.innerHeight / 2;
+    for (var i = 0; i < 16; i++) {
+      var s = document.createElement('span');
+      s.className = 'confetti';
+      s.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      var ang = Math.random() * Math.PI * 2, dist = 60 + Math.random() * 130;
+      s.style.left = ox + 'px';
+      s.style.top = oy + 'px';
+      s.style.setProperty('--x', Math.cos(ang) * dist + 'px');
+      s.style.setProperty('--y', (Math.sin(ang) * dist - 50) + 'px');
+      s.style.setProperty('--r', (Math.random() * 360 - 180) + 'deg');
+      s.style.animationDelay = (Math.random() * 0.08).toFixed(2) + 's';
+      fx.appendChild(s);
+      (function (el) { setTimeout(function () { el.remove(); }, 1100); })(s);
+    }
+  }
+
   function roleName(id) {
     var rn = state().settings.roomNames || {};
     if (id === 'ROOM_A') return rn.A || t('role_ROOM_A');
@@ -83,25 +112,22 @@
     else if (currentTab === 'roster') mainEl.innerHTML = renderRoster();
     else if (currentTab === 'expenses') mainEl.innerHTML = renderExpenses();
     else if (currentTab === 'shopping') mainEl.innerHTML = renderShopping();
-    else if (currentTab === 'leaderboard') mainEl.innerHTML = renderLeaderboard();
-    else if (currentTab === 'overview') mainEl.innerHTML = renderOverview();
-    else if (currentTab === 'settings') mainEl.innerHTML = renderSettings();
+    else if (currentTab === 'profile') mainEl.innerHTML = renderProfile();
   }
 
   function renderTabs() {
     var tabs = [
-      ['today', t('tab_today'), '📅'],
-      ['roster', t('tab_roster'), '🔁'],
-      ['expenses', t('tab_expenses'), '💰'],
+      ['today', t('tab_today'), '🏠'],
+      ['roster', t('nav_roster'), '🧹'],
       ['shopping', t('tab_shopping'), '🛒'],
-      ['leaderboard', t('tab_leaderboard'), '🏆'],
-      ['overview', t('tab_overview'), '📊'],
-      ['settings', t('tab_settings'), '⚙️']
+      ['expenses', t('tab_expenses'), '💰'],
+      ['profile', t('tab_profile'), '👤']
     ];
     document.getElementById('nav').innerHTML = tabs.map(function (x) {
-      return '<button class="tab' + (currentTab === x[0] ? ' active' : '') +
-        '" data-tab="' + x[0] + '"><span class="ti">' + x[2] + '</span>' +
-        '<span class="tl">' + esc(x[1]) + '</span></button>';
+      var active = currentTab === x[0];
+      return '<button class="tab' + (active ? ' active' : '') + '" data-tab="' + x[0] +
+        '" aria-current="' + (active ? 'page' : 'false') + '">' +
+        '<span class="ti">' + x[2] + '</span><span class="tl">' + esc(x[1]) + '</span></button>';
     }).join('');
   }
 
@@ -297,6 +323,23 @@
       }).join('') + '</ul></section>';
 
     return '<section class="card"><h2>' + t('lb_title') + '</h2>' + rows + '</section>' + rules;
+  }
+
+  // ---------- PROFILE hub (points / overview / settings) ----------
+  function renderProfile() {
+    var subs = [
+      ['leaderboard', t('tab_leaderboard')],
+      ['overview', t('tab_overview')],
+      ['settings', t('tab_settings')]
+    ];
+    var seg = '<div class="segmented">' + subs.map(function (s) {
+      return '<button class="seg' + (profileSub === s[0] ? ' active' : '') +
+        '" data-act="psub" data-sub="' + s[0] + '">' + esc(s[1]) + '</button>';
+    }).join('') + '</div>';
+    var body = profileSub === 'overview' ? renderOverview()
+      : profileSub === 'settings' ? renderSettings()
+      : renderLeaderboard();
+    return seg + body;
   }
 
   // ---------- SHOPPING (supplies list + inventory) ----------
@@ -775,7 +818,19 @@
       } else if (el.getAttribute('data-act') === 'toggle') {
         var wk = el.getAttribute('data-wk'), role = el.getAttribute('data-role'),
           task = el.getAttribute('data-task');
+        // Capture the checkbox position before the re-render detaches it.
+        var rect = el.getBoundingClientRect();
+        var wasChecked = el.checked;
         toggleTask(wk, role, task, el.checked);
+        if (wasChecked) {
+          var isMonthly = DORM.store.isMonthlyWeek(weekDateFromKey(wk));
+          var tasks = DORM.duties.tasksForRole(role, isMonthly);
+          var comp = S.get().completions[wk + '|' + role];
+          var done = comp ? tasks.filter(function (x) { return comp.items[x.id]; }).length : 0;
+          if (tasks.length && done === tasks.length) {
+            celebrate(rect.left + rect.width / 2, rect.top);
+          }
+        }
       } else if (el.getAttribute('data-act') === 'm-name') {
         var id = el.getAttribute('data-id');
         S.update(function (s) { var m = s.members.filter(function (x) { return x.id === id; })[0]; if (m) m.name = el.value; });
@@ -830,7 +885,8 @@
   }
 
   var actions = {
-    'goto-settings': function () { currentTab = 'settings'; render(); },
+    'goto-settings': function () { currentTab = 'profile'; profileSub = 'settings'; render(); },
+    'psub': function (el) { profileSub = el.getAttribute('data-sub'); render(); },
     'modal-close': function () { closeModal(); },
     'tour-next': function () { openTour(tourStep + 1); },
     'tour-back': function () { openTour(tourStep - 1); },
