@@ -77,11 +77,46 @@
     state.expenses = state.expenses.filter(function (e) { return e.id !== id; });
   }
 
+  /*
+   * A settlement always represents a money transfer `from` -> `to`. The other
+   * repayment path from the roadmap ("buy an equivalent thing for everyone")
+   * is just a normal shared expense paid by the debtor, so it flows through
+   * addExpense() and needs no special record here.
+   *
+   * Accepts either the legacy positional form (state, from, to, amount) or an
+   * options object (state, { from, to, amount, note, proof, proofPath,
+   * proofStatus }). Returns the created record so the caller can attach an
+   * async proof/verification to it later.
+   */
   function recordSettlement(state, from, to, amount) {
-    state.settlements.unshift({
-      id: DORM.store.uid(), from: from, to: to,
-      amount: round2(Number(amount) || 0), ts: Date.now()
-    });
+    var o = (from && typeof from === 'object') ? from
+      : { from: from, to: to, amount: amount };
+    var hasProof = !!(o.proof || o.proofPath);
+    var rec = {
+      id: DORM.store.uid(),
+      from: o.from,
+      to: o.to,
+      amount: round2(Number(o.amount) || 0),
+      method: 'transfer',
+      note: o.note || '',
+      proof: o.proof || '',            // small inline thumbnail (data URL), works offline
+      proofPath: o.proofPath || '',    // Storage path when uploaded for AI check
+      proofStatus: o.proofStatus || (hasProof ? 'attached' : 'none'),
+      ts: Date.now()
+    };
+    state.settlements.unshift(rec);
+    return rec;
+  }
+
+  /** Patch fields of an existing settlement (e.g. after AI verification). */
+  function updateSettlement(state, id, patch) {
+    var rec = (state.settlements || []).filter(function (s) { return s.id === id; })[0];
+    if (rec) Object.keys(patch || {}).forEach(function (k) { rec[k] = patch[k]; });
+    return rec;
+  }
+
+  function removeSettlement(state, id) {
+    state.settlements = (state.settlements || []).filter(function (s) { return s.id !== id; });
   }
 
   DORM.expenses = {
@@ -91,6 +126,8 @@
     addExpense: addExpense,
     removeExpense: removeExpense,
     recordSettlement: recordSettlement,
+    updateSettlement: updateSettlement,
+    removeSettlement: removeSettlement,
     round2: round2
   };
 })(window.DORM = window.DORM || {});

@@ -45,6 +45,11 @@ GitHub не дозволяє зробити це за тебе, тому:
   - [ ] *(рекомендовано для економії)* `ANTHROPIC_MODEL` = `claude-haiku-4-5`
 - [ ] Розгорни функцію [`supabase/functions/parse-receipt/index.ts`](supabase/functions/parse-receipt/index.ts)
       (**Edge Functions → Deploy a new function**, назва `parse-receipt`)
+- [ ] *(для перевірки фото банківського переказу)* розгорни також
+      [`supabase/functions/verify-transfer/index.ts`](supabase/functions/verify-transfer/index.ts)
+      (назва `verify-transfer`). Той самий ключ ШІ й bucket `receipts`.
+      Без цієї функції погашення боргу переказом працює — фото просто
+      зберігається як доказ, без автоперевірки ШІ.
 
 ---
 

@@ -44,6 +44,30 @@
   function money(n) {
     return DORM.expenses.round2(n).toLocaleString('cs-CZ') + ' ' + esc(state().settings.currency);
   }
+  // Downscale an image File to a small JPEG data URL so a proof photo can be
+  // kept inline in the state (works offline, syncs across phones). Resolves
+  // null on any error or a non-image.
+  function downscaleImage(file, maxDim, quality) {
+    return new Promise(function (resolve) {
+      if (!file || !/^image\//.test(file.type || '')) { resolve(null); return; }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          var scale = Math.min(1, (maxDim || 800) / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var cv = document.createElement('canvas');
+          cv.width = cw; cv.height = ch;
+          cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          resolve(cv.toDataURL('image/jpeg', quality || 0.55));
+        } catch (e) { resolve(null); }
+        finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
   function prefersReducedMotion() {
     try { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch (e) { return false; }
@@ -291,7 +315,42 @@
     }).join('');
     hist += '</section>';
 
-    return settle + add + hist;
+    return settle + add + repaymentsCard() + hist;
+  }
+
+  // Small coloured badge describing a proof's verification state.
+  function proofBadge(rec) {
+    var map = {
+      verified: ['ok', '✓ ' + t('settle_proof_verified')],
+      rejected: ['neg', '⚠ ' + t('settle_proof_rejected')],
+      pending: ['muted', '… ' + t('settle_proof_pending')],
+      attached: ['muted', '📎 ' + t('settle_proof_attached')]
+    };
+    var b = map[rec.proofStatus];
+    if (!b) return '';
+    return '<span class="proof-badge ' + b[0] + '">' + b[1] + '</span>';
+  }
+
+  // History of money-transfer repayments (the "buy for everyone" path is a
+  // normal expense and already appears in the expenses history above).
+  function repaymentsCard() {
+    var st = state();
+    var list = st.settlements || [];
+    var card = '<section class="card"><h2>🤝 ' + t('settle_repayments') + '</h2>';
+    if (!list.length) return card + '<p class="muted sm">' + t('settle_none') + '</p></section>';
+    card += list.map(function (r) {
+      return '<div class="settle-hist' + (r.proofStatus === 'rejected' ? ' bad' : '') + '">' +
+        avatar(member(r.from), 24) +
+        '<span class="arrow">→</span>' + avatar(member(r.to), 24) +
+        '<div class="sh-mid"><div class="amt">' + money(r.amount) + '</div>' +
+        (r.note ? '<div class="muted sm">' + esc(r.note) + '</div>' : '') +
+        proofBadge(r) + '</div>' +
+        ((r.proof || r.proofPath)
+          ? '<button class="btn ghost sm" data-act="settle-proof" data-id="' + r.id +
+            '" title="' + t('settle_view_proof') + '">🧾</button>' : '') +
+        '<button class="btn ghost sm" data-act="del-settle" data-id="' + r.id + '">✕</button></div>';
+    }).join('');
+    return card + '</section>';
   }
 
   function catIcon(c) {
@@ -634,24 +693,32 @@
       '">' + t('swap_confirm') + '</button></div>');
   }
 
-  function addExpenseModal() {
+  // `prefill` (optional): { desc, amount, payer, split:[ids], note } — used when
+  // repaying a debt by "buying an equivalent thing for everyone".
+  function addExpenseModal(prefill) {
     var st = state();
+    prefill = prefill || {};
     var payerOpts = verified().map(function (m) {
-      return '<option value="' + m.id + '"' + (st.settings.me === m.id ? ' selected' : '') + '>' +
+      var sel = prefill.payer ? (prefill.payer === m.id) : (st.settings.me === m.id);
+      return '<option value="' + m.id + '"' + (sel ? ' selected' : '') + '>' +
         esc(m.name) + '</option>';
     }).join('');
     var catOpts = DORM.expenses.CATEGORIES.map(function (c) {
       return '<option value="' + c + '">' + t(c) + '</option>';
     }).join('');
     var splitBoxes = verified().map(function (m) {
+      var on = prefill.split ? prefill.split.indexOf(m.id) !== -1 : true;
       return '<label class="chk"><input type="checkbox" class="splitM" value="' + m.id +
-        '" checked> ' + esc(m.name) + '</label>';
+        '"' + (on ? ' checked' : '') + '> ' + esc(m.name) + '</label>';
     }).join('');
     openModal('<h3>' + t('exp_add') + '</h3>' +
+      (prefill.note ? '<p class="muted sm">' + esc(prefill.note) + '</p>' : '') +
       '<label class="field"><span>' + t('exp_desc') + '</span>' +
-      '<input type="text" id="expDesc" placeholder="' + t('exp_desc') + '"></label>' +
+      '<input type="text" id="expDesc" placeholder="' + t('exp_desc') + '" value="' +
+      esc(prefill.desc || '') + '"></label>' +
       '<label class="field"><span>' + t('exp_amount') + ' (' + esc(st.settings.currency) +
-      ')</span><input type="number" id="expAmount" inputmode="decimal" min="0" step="0.01"></label>' +
+      ')</span><input type="number" id="expAmount" inputmode="decimal" min="0" step="0.01"' +
+      (prefill.amount ? ' value="' + esc(prefill.amount) + '"' : '') + '></label>' +
       '<label class="field"><span>' + t('exp_payer') + '</span><select id="expPayer">' +
       payerOpts + '</select></label>' +
       '<label class="field"><span>' + t('exp_category') + '</span><select id="expCat">' +
@@ -664,6 +731,57 @@
         : '') +
       '<div class="row gap end"><button class="btn ghost" data-act="modal-close">' + t('cancel') +
       '</button><button class="btn" data-act="exp-save">' + t('exp_save') + '</button></div>');
+  }
+
+  // Repay a debt from -> to. Two paths from the roadmap: a money transfer
+  // (with an optional proof photo, AI-checked when the backend is on) or
+  // buying something of equivalent value for everyone (a normal expense).
+  function settleModal(from, to, amount) {
+    var fromN = (member(from) || {}).name || '—';
+    var toN = (member(to) || {}).name || '—';
+    var cur = state().settings.currency;
+    var aiHint = (DORM.settleproof && DORM.settleproof.enabled())
+      ? t('settle_proof_ai_on') : t('settle_proof_ai_off');
+    openModal('<h3>🤝 ' + t('settle') + '</h3>' +
+      '<div class="settle-head">' + avatar(member(from), 30) +
+      '<span class="nm">' + esc(fromN) + '</span><span class="arrow">→</span>' +
+      avatar(member(to), 30) + '<span class="nm">' + esc(toN) + '</span></div>' +
+
+      '<div class="settle-way"><div class="freq-h">💸 ' + t('settle_way_transfer') + '</div>' +
+      '<label class="field"><span>' + t('exp_amount') + ' (' + esc(cur) + ')</span>' +
+      '<input type="number" id="setAmount" inputmode="decimal" min="0" step="0.01" value="' +
+      esc(amount) + '"></label>' +
+      '<label class="field"><span>' + t('settle_note') + '</span>' +
+      '<input type="text" id="setNote" placeholder="' + t('settle_note_ph') + '"></label>' +
+      '<label class="field"><span>📷 ' + t('settle_proof') + ' · ' + t('exp_receipt_optional') +
+      '</span><input type="file" id="setProof" accept="image/*" capture="environment"></label>' +
+      '<p class="muted sm">' + aiHint + '</p>' +
+      '<button class="btn full" data-act="settle-transfer-save" data-from="' + from +
+      '" data-to="' + to + '">' + t('settle_confirm_transfer') + '</button></div>' +
+
+      '<div class="or-sep"><span>' + t('settle_or') + '</span></div>' +
+
+      '<div class="settle-way"><div class="freq-h">🛍️ ' + t('settle_way_goods') + '</div>' +
+      '<p class="muted sm">' + t('settle_way_goods_desc') + '</p>' +
+      '<button class="btn ghost full" data-act="settle-goods" data-from="' + from +
+      '" data-amt="' + esc(amount) + '">' + t('settle_confirm_goods') + '</button></div>' +
+
+      '<div class="row end mt"><button class="btn ghost" data-act="modal-close">' +
+      t('cancel') + '</button></div>');
+  }
+
+  function settleProofModal(id) {
+    var rec = (state().settlements || []).filter(function (s) { return s.id === id; })[0];
+    if (!rec) return;
+    var body;
+    if (rec.proof) body = '<img class="proof-img" src="' + esc(rec.proof) + '" alt="proof">';
+    else if (rec.proofPath) body = '<p class="muted sm">' + t('settle_proof_remote') + '</p>';
+    else body = '<p class="muted">' + t('receipt_none') + '</p>';
+    openModal('<h3>🧾 ' + t('settle_view_proof') + '</h3>' +
+      '<div class="muted sm">' + esc((member(rec.from) || {}).name) + ' → ' +
+      esc((member(rec.to) || {}).name) + ' · ' + money(rec.amount) + '</div>' +
+      proofBadge(rec) + body +
+      '<div class="row end"><button class="btn" data-act="modal-close">OK</button></div>');
   }
 
   function receiptModal(expenseId) {
@@ -1031,11 +1149,59 @@
       closeModal();
     },
     'settle': function (el) {
-      if (!confirm(t('exp_settle_confirm'))) return;
-      S.update(function (s) {
-        DORM.expenses.recordSettlement(s, el.getAttribute('data-from'),
-          el.getAttribute('data-to'), +el.getAttribute('data-amt'));
+      settleModal(el.getAttribute('data-from'), el.getAttribute('data-to'),
+        +el.getAttribute('data-amt'));
+    },
+    'settle-transfer-save': function (el) {
+      var from = el.getAttribute('data-from'), to = el.getAttribute('data-to');
+      var amount = parseFloat(document.getElementById('setAmount').value);
+      var note = (document.getElementById('setNote').value || '').trim();
+      if (!(amount > 0)) return;
+      var fileInput = document.getElementById('setProof');
+      var file = fileInput && fileInput.files && fileInput.files[0];
+      var cur = state().settings.currency;
+      // Downscale the proof to a small inline thumbnail (works offline) first,
+      // then record the settlement, then optionally push it for an AI check.
+      downscaleImage(file, 900, 0.55).then(function (thumb) {
+        var recId;
+        S.update(function (s) {
+          var rec = DORM.expenses.recordSettlement(s, {
+            from: from, to: to, amount: amount, note: note, proof: thumb || ''
+          });
+          recId = rec.id;
+        });
+        closeModal();
+        if (file && DORM.settleproof && DORM.settleproof.enabled()) {
+          S.update(function (s) { DORM.expenses.updateSettlement(s, recId, { proofStatus: 'pending' }); });
+          DORM.settleproof.upload(recId, amount, cur, file).then(function (res) {
+            var v = res && res.verdict;
+            var status = v === 'verified' ? 'verified'
+              : v === 'rejected' ? 'rejected' : 'attached';
+            S.update(function (s) {
+              DORM.expenses.updateSettlement(s, recId, { proofStatus: status, proofPath: res.path || '' });
+            });
+          }).catch(function () {
+            S.update(function (s) { DORM.expenses.updateSettlement(s, recId, { proofStatus: 'attached' }); });
+          });
+        }
       });
+    },
+    'settle-goods': function (el) {
+      var from = el.getAttribute('data-from');
+      var amt = +el.getAttribute('data-amt');
+      closeModal();
+      addExpenseModal({
+        payer: from,
+        amount: amt ? DORM.expenses.round2(amt) : '',
+        split: verified().map(function (m) { return m.id; }),
+        note: t('settle_goods_hint')
+      });
+    },
+    'settle-proof': function (el) { settleProofModal(el.getAttribute('data-id')); },
+    'del-settle': function (el) {
+      if (!confirm(t('settle_del_confirm'))) return;
+      var id = el.getAttribute('data-id');
+      S.update(function (s) { DORM.expenses.removeSettlement(s, id); });
     },
     'token': function (el) {
       var id = el.getAttribute('data-id');

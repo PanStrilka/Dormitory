@@ -193,6 +193,26 @@ table.rota .ra { text-align: right; width: 44px; }
 .exp-row .et { font-weight: 600; font-size: 13.5px; }
 .exp-row .ea { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
 
+/* settle up (repay debt) */
+.btn.full { width: 100%; justify-content: center; margin-top: 4px; }
+.settle-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.settle-head .nm { font-weight: 700; }
+.settle-head .arrow { color: var(--muted); }
+.settle-way { padding: 10px 0; }
+.or-sep { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; margin: 4px 0; }
+.or-sep::before, .or-sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.settle-hist { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.settle-hist:last-child { border-bottom: 0; }
+.settle-hist.bad { background: color-mix(in srgb, var(--danger) 8%, transparent); border-radius: 8px; }
+.settle-hist .arrow { color: var(--muted); }
+.settle-hist .sh-mid { flex: 1; min-width: 0; }
+.settle-hist .sh-mid .amt { font-weight: 700; font-size: 13.5px; }
+.proof-badge { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--bg); }
+.proof-badge.ok { color: var(--ok); }
+.proof-badge.neg { color: var(--danger); }
+.proof-badge.muted { color: var(--muted); }
+.proof-img { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10px; margin: 10px 0; background: var(--bg); }
+
 /* leaderboard */
 .lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .lb-row:last-child { border-bottom: 0; }
