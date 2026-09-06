@@ -637,7 +637,10 @@
         }).join('') + '</section>';
     }
 
-    var sync = st.settings.sync || {};
+    var sync = st.settings.sync ||
+      (st.settings.syncDisabled ? {} : (DORM.defaultSync() || {}));
+    var syncActive = !!(st.settings.sync ||
+      (!st.settings.syncDisabled && DORM.defaultSync()));
     return '<section class="card"><h2>' + t('set_members') + '</h2>' + rows +
       '<div class="row gap">' +
       (vs.length < 8
@@ -685,10 +688,10 @@
       '<input type="text" id="syncUrl" placeholder="https://xxxx.supabase.co" value="' +
       esc(sync.url || '') + '"></label>' +
       '<label class="field"><span>' + t('set_sync_key') + '</span>' +
-      '<input type="text" id="syncKey" placeholder="eyJhbGciOi..." value="' +
+      '<input type="text" id="syncKey" placeholder="sb_publishable_… / eyJ…" value="' +
       esc(sync.key || '') + '"></label>' +
       '<div class="row gap"><button class="btn" data-act="sync-on">' + t('set_sync_save') +
-      '</button>' + (st.settings.sync
+      '</button>' + (syncActive
         ? '<button class="btn ghost" data-act="sync-off">' + t('set_sync_off') + '</button>' : '') +
       '</div>' +
       '<div class="row gap mt"><button class="btn ghost" data-act="export">⬇ ' + t('set_export') +
@@ -1111,7 +1114,8 @@
       var msg = document.getElementById('notifyMsg');
       var st = state();
       if (!DORM.push || !DORM.push.supported()) { if (msg) msg.textContent = t('notify_unsupported'); return; }
-      if (!(st.settings.sync && st.settings.sync.url)) { if (msg) msg.textContent = t('notify_need_sync'); return; }
+      var esync = st.settings.sync || (st.settings.syncDisabled ? null : DORM.defaultSync());
+      if (!(esync && esync.url)) { if (msg) msg.textContent = t('notify_need_sync'); return; }
       if (!st.settings.vapidPublicKey) { if (msg) msg.textContent = t('notify_need_vapid'); return; }
       var meName = member(st.settings.me) ? member(st.settings.me).name : null;
       if (msg) msg.textContent = '…';
@@ -1340,11 +1344,15 @@
     'sync-on': function () {
       var url = document.getElementById('syncUrl').value.trim();
       var key = document.getElementById('syncKey').value.trim();
-      S.update(function (s) { s.settings.sync = (url && key) ? { url: url, key: key } : null; });
-      DORM.sync.enable(state().settings.sync);
+      S.update(function (s) {
+        s.settings.sync = (url && key) ? { url: url, key: key } : null;
+        s.settings.syncDisabled = false; // re-enable (falls back to baked-in default if fields empty)
+      });
+      var cfg = state().settings.sync || DORM.defaultSync();
+      if (cfg) DORM.sync.enable(cfg); else DORM.sync.disable();
     },
     'sync-off': function () {
-      S.update(function (s) { s.settings.sync = null; });
+      S.update(function (s) { s.settings.sync = null; s.settings.syncDisabled = true; });
       DORM.sync.disable();
     }
   };

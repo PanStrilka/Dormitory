@@ -23,8 +23,11 @@
       dot.title = 'sync: ' + s;
     });
 
-    // enable sync if previously configured
-    if (st.settings.sync) DORM.sync.enable(st.settings.sync);
+    // Enable sync. Priority: an explicit manual override, then the baked-in
+    // public default (js/config.js) so every roommate is synced out of the box.
+    // A user can still turn it off (settings.syncDisabled) in Settings.
+    var cfg = st.settings.sync || (st.settings.syncDisabled ? null : DORM.defaultSync());
+    if (cfg) DORM.sync.enable(cfg);
 
     DORM.ui.render();
   }
