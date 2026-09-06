@@ -82,6 +82,15 @@
   function verifyOtp(email, code) {
     return client.auth.verifyOtp({ email: email, token: String(code).trim(), type: 'email' });
   }
+  // Email + password: no emails at all, so the session is created directly in
+  // this container — which is what makes iOS "add to home screen" work, and
+  // avoids the default email service's tiny rate limit.
+  function signUpPassword(email, password) {
+    return client.auth.signUp({ email: email, password: password });
+  }
+  function signInPassword(email, password) {
+    return client.auth.signInWithPassword({ email: email, password: password });
+  }
   function signOut() { return client.auth.signOut(); }
   function user() {
     return client && client.auth.getUser ? client.auth.getUser() : Promise.resolve({ data: {} });
@@ -207,7 +216,9 @@
 
   DORM.auth = {
     enabled: enabled, init: init, onChange: onChange,
-    signIn: signIn, verifyOtp: verifyOtp, signOut: signOut, user: user, me: me,
+    signIn: signIn, verifyOtp: verifyOtp,
+    signUpPassword: signUpPassword, signInPassword: signInPassword,
+    signOut: signOut, user: user, me: me,
     ensureProfile: ensureProfile, myProfile: myProfile,
     myMemberships: myMemberships, listCells: listCells, requestJoin: requestJoin,
     cellMembers: cellMembers, setMembership: setMembership, removeMembership: removeMembership,

@@ -64,31 +64,20 @@
   }
 
   // ---- screens ----
+  // Email + password. No emails involved, so the session is created right here
+  // in the app's own storage — this is what makes iOS home-screen installs work.
   function renderLogin() {
     screen('<div class="auth-card"><div class="auth-logo">🧽</div>' +
       '<h2>' + t('auth_welcome') + '</h2>' +
-      '<p class="muted">' + t('auth_login_hint') + '</p>' +
+      '<p class="muted">' + t('auth_pw_hint') + '</p>' +
       '<label class="field"><span>Email</span><input type="email" id="authEmail" ' +
       'placeholder="you@email.com" autocomplete="email" value="' + esc(pendingEmail) + '"></label>' +
-      '<button class="btn big" data-authact="signin">' + t('auth_send_code') + '</button>' +
-      '<div id="authMsg" class="muted sm center"></div></div>');
-  }
-
-  // Enter the 6-digit code from the email — this logs you in inside THIS app
-  // container, which is what makes iOS "add to home screen" installs work.
-  function renderOtp(email) {
-    screen('<div class="auth-card"><div class="auth-logo">✉️</div>' +
-      '<h2>' + t('auth_code_title') + '</h2>' +
-      '<p class="muted">' + t('auth_code_hint') + '<br><b>' + esc(email) + '</b></p>' +
-      '<label class="field"><span>' + t('auth_code_label') + '</span>' +
-      '<input type="text" id="authCode" inputmode="numeric" autocomplete="one-time-code" ' +
-      'maxlength="6" placeholder="123456" style="font-size:22px;letter-spacing:6px;text-align:center"></label>' +
-      '<button class="btn big" data-authact="verifyotp">' + t('auth_code_verify') + '</button>' +
+      '<label class="field"><span>' + t('auth_pw_label') + '</span>' +
+      '<input type="password" id="authPw" placeholder="••••••" autocomplete="current-password"></label>' +
+      '<button class="btn big" data-authact="pw-signin">' + t('auth_pw_signin') + '</button>' +
+      '<button class="btn ghost" data-authact="pw-signup">' + t('auth_pw_signup') + '</button>' +
       '<div id="authMsg" class="muted sm center"></div>' +
-      '<div class="row gap center mt">' +
-      '<button class="btn link" data-authact="resend">' + t('auth_code_resend') + '</button>' +
-      '<button class="btn link" data-authact="backlogin">' + t('auth_code_change') + '</button></div>' +
-      '<p class="muted sm center mt">' + t('auth_code_link_note') + '</p></div>');
+      '<button class="btn link" data-authact="localmode">' + t('auth_use_local') + '</button></div>');
   }
 
   function renderName(u) {
@@ -247,30 +236,30 @@
       var el = e.target.closest('[data-authact]');
       if (!el) return;
       var act = el.getAttribute('data-authact');
-      if (act === 'signin') {
+      if (act === 'pw-signin' || act === 'pw-signup') {
         var email = (document.getElementById('authEmail').value || '').trim();
-        if (!email) return;
+        var pw = document.getElementById('authPw').value || '';
+        if (!email) { msg('authMsg', t('auth_pw_need_email')); return; }
+        if (pw.length < 6) { msg('authMsg', t('auth_pw_short')); return; }
+        pendingEmail = email;
         msg('authMsg', '…');
-        DORM.auth.signIn(email).then(function (r) {
-          if (r.error) { msg('authMsg', r.error.message || t('auth_err')); return; }
-          pendingEmail = email;
-          renderOtp(email);
-        }).catch(function () { msg('authMsg', t('auth_err')); });
-      } else if (act === 'verifyotp') {
-        var code = (document.getElementById('authCode').value || '').replace(/\D/g, '');
-        if (code.length < 6) { msg('authMsg', t('auth_code_bad')); return; }
-        msg('authMsg', '…');
-        DORM.auth.verifyOtp(pendingEmail, code).then(function (r) {
-          if (r.error) { msg('authMsg', r.error.message || t('auth_code_bad')); return; }
-          route();
-        }).catch(function () { msg('authMsg', t('auth_code_bad')); });
-      } else if (act === 'resend') {
-        if (!pendingEmail) return renderLogin();
-        msg('authMsg', '…');
-        DORM.auth.signIn(pendingEmail).then(function () { msg('authMsg', t('auth_code_resent')); })
-          .catch(function () { msg('authMsg', t('auth_err')); });
-      } else if (act === 'backlogin') {
-        renderLogin();
+        if (act === 'pw-signin') {
+          DORM.auth.signInPassword(email, pw).then(function (r) {
+            if (r.error) { msg('authMsg', t('auth_pw_bad')); return; }
+            route();
+          }).catch(function () { msg('authMsg', t('auth_err')); });
+        } else {
+          DORM.auth.signUpPassword(email, pw).then(function (r) {
+            if (r.error) {
+              var m = (r.error.message || '').toLowerCase();
+              msg('authMsg', m.indexOf('already') !== -1 ? t('auth_pw_exists') : (r.error.message || t('auth_err')));
+              return;
+            }
+            // Session present => "Confirm email" is off => straight in.
+            if (r.data && r.data.session) { route(); return; }
+            msg('authMsg', t('auth_pw_confirm')); // admin should disable email confirmation
+          }).catch(function () { msg('authMsg', t('auth_err')); });
+        }
       } else if (act === 'savename') {
         var name = (document.getElementById('authName').value || '').trim();
         DORM.auth.ensureProfile(name).then(route);
