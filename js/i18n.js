@@ -94,6 +94,11 @@
       auth_create_cell: 'Vytvořit buňku',
       auth_makeadmin: 'Udělat správcem',
       auth_unadmin: 'Odebrat správce',
+      auth_account: 'Účet',
+      auth_in_cell: 'Buňka',
+      auth_role_admin: 'Správce',
+      auth_role_member: 'Člen',
+      auth_open_admin: 'Otevřít správu',
 
       // roles (room names come from settings; these are fallbacks)
       role_ROOM_A: 'Pokoj 1',
@@ -401,6 +406,11 @@
       auth_create_cell: 'Create cell',
       auth_makeadmin: 'Make admin',
       auth_unadmin: 'Remove admin',
+      auth_account: 'Account',
+      auth_in_cell: 'Cell',
+      auth_role_admin: 'Admin',
+      auth_role_member: 'Member',
+      auth_open_admin: 'Open admin',
 
       role_ROOM_A: 'Room 1',
       role_ROOM_B: 'Room 2',
