@@ -209,6 +209,36 @@
       settle_proof_attached: 'doklad přiložen',
       settle_proof_remote: 'Doklad je uložen v cloudu.',
 
+      // photo proof of completed chores (Phase 3)
+      proof_title: 'Foto-důkaz úklidu',
+      proof_desc: 'Než odškrtneš úkol, vyfoť ho přímo v aplikaci. AI ověří, že je opravdu hotový a že to není fotka obrazovky.',
+      proof_mode: 'Kdy vyžadovat foto',
+      proof_off: 'Vypnuto',
+      proof_weekly: 'Týdenní a měsíční úkoly',
+      proof_all: 'Všechny úkoly',
+      proof_ai_on: 'AI kontrola je zapnutá (Supabase propojen).',
+      proof_ai_off: 'AI kontrola je vypnutá — foto se uloží jako doklad. Zapne se po propojení Supabase.',
+      proof_need_hint: 'Vyžaduje foto-důkaz',
+      proof_verified: 'ověřeno AI',
+      proof_manual: 'foto uloženo',
+      proof_flagged: 'označeno — vypadá jako fotka obrazovky',
+      proof_camera_title: 'Vyfoť hotový úkol',
+      proof_checking: 'Kontroluji foto…',
+      proof_ok: 'Hotovo — ověřeno!',
+      proof_spoof: 'Vypadá to jako fotka obrazovky. Vyfoť prosím skutečný pokoj.',
+      proof_notdone: 'Zatím to nevypadá hotově. Zkus to prosím znovu.',
+      proof_saved: 'Foto uloženo jako doklad.',
+      proof_saved_nobackend: 'Foto uloženo (AI kontrola vypnutá).',
+      proof_denied: 'Přístup ke kameře byl zamítnut. Povol ho a zkus to znovu.',
+
+      // in-app camera
+      cam_title: 'Vyfoť',
+      cam_hint: 'Namiř na hotový úklid a stiskni tlačítko',
+      cam_take: 'Vyfotit',
+      cam_flip: 'Otočit kameru',
+      cam_retake: 'Znovu',
+      cam_use: 'Použít toto foto',
+
       // comments on purchases
       cm_title: 'Komentáře',
       cm_none: 'Zatím žádné komentáře. Buď první!',
@@ -514,6 +544,36 @@
       settle_proof_pending: 'checking…',
       settle_proof_attached: 'proof attached',
       settle_proof_remote: 'Proof is stored in the cloud.',
+
+      // photo proof of completed chores (Phase 3)
+      proof_title: 'Photo proof of chores',
+      proof_desc: 'Before ticking a task off, take a photo of it in the app. AI checks it is really done and that it is not a photo of a screen.',
+      proof_mode: 'When to require a photo',
+      proof_off: 'Off',
+      proof_weekly: 'Weekly & monthly tasks',
+      proof_all: 'All tasks',
+      proof_ai_on: 'AI checking is on (Supabase connected).',
+      proof_ai_off: 'AI checking is off — the photo is saved as proof. It turns on once Supabase is connected.',
+      proof_need_hint: 'Needs a photo proof',
+      proof_verified: 'verified by AI',
+      proof_manual: 'photo saved',
+      proof_flagged: 'flagged — looks like a photo of a screen',
+      proof_camera_title: 'Photograph the finished task',
+      proof_checking: 'Checking the photo…',
+      proof_ok: 'Done — verified!',
+      proof_spoof: 'This looks like a photo of a screen. Please photograph the real room.',
+      proof_notdone: "It doesn't look done yet. Please try again.",
+      proof_saved: 'Photo saved as proof.',
+      proof_saved_nobackend: 'Photo saved (AI checking off).',
+      proof_denied: 'Camera access was denied. Allow it and try again.',
+
+      // in-app camera
+      cam_title: 'Take a photo',
+      cam_hint: 'Point at the finished chore and press the button',
+      cam_take: 'Take photo',
+      cam_flip: 'Flip camera',
+      cam_retake: 'Retake',
+      cam_use: 'Use this photo',
 
       // comments on purchases
       cm_title: 'Comments',
