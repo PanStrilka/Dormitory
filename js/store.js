@@ -25,7 +25,8 @@
         vapidPublicKey: '', // for web-push (private half stays in Supabase secrets)
         sync: null,        // { url, key } manual override; null = use baked-in default (config.js)
         syncDisabled: false, // true when a user explicitly turns sync off despite a default
-        proof: 'off'       // photo proof for check-off: 'off' | 'weekly' (weekly+monthly) | 'all'
+        proof: 'off',      // photo proof for check-off: 'off' | 'weekly' (weekly+monthly) | 'all'
+        proofRetentionDays: 7 // proof photos are auto-deleted after this many days
       },
       members: [],            // { id, name, room: 'A'|'B', color }
       overrides: {},          // "2026-W36|KITCHEN" -> memberId (manual/swap assignment)
@@ -146,6 +147,28 @@
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+  /**
+   * Delete task-proof photos older than the retention window (default 7 days).
+   * The task stays checked off — only the stored photo/verdict is purged, for
+   * privacy and to keep the synced JSON small. Returns true if anything changed.
+   */
+  function pruneProofs() {
+    var days = (state.settings && state.settings.proofRetentionDays) || 7;
+    var cutoff = Date.now() - days * 86400000;
+    var changed = false;
+    Object.keys(state.completions || {}).forEach(function (k) {
+      var c = state.completions[k];
+      if (!c || !c.proofs) return;
+      Object.keys(c.proofs).forEach(function (tid) {
+        var p = c.proofs[tid];
+        if (!p || !p.ts || p.ts < cutoff) { delete c.proofs[tid]; changed = true; }
+      });
+      if (Object.keys(c.proofs).length === 0) delete c.proofs;
+    });
+    if (changed) persist();
+    return changed;
+  }
+
   DORM.store = {
     STORAGE_KEY: STORAGE_KEY,
     defaultState: defaultState,
@@ -159,6 +182,7 @@
     isMonthlyWeek: isMonthlyWeek,
     weekRange: weekRange,
     dateFromWeekIndex: dateFromWeekIndex,
+    pruneProofs: pruneProofs,
     uid: uid
   };
 })(window.DORM = window.DORM || {});

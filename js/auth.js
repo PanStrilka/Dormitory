@@ -144,6 +144,7 @@
   // ---- per-cell sync adapter over cell_state (used by the store) ----
   function cellSync(cellId) {
     var pollTimer = null, lastPushedAt = 0, applying = false, statusCb = null;
+    var lastAppliedRaw = null;
     function setStatus(s) { if (statusCb) statusCb(s); }
     function pull() {
       return client.from('cell_state').select('data, updated_at').eq('cell_id', cellId).maybeSingle()
@@ -151,6 +152,16 @@
           if (!r.data || !r.data.data) { setStatus('on'); return; }
           var remoteTs = new Date(r.data.updated_at).getTime();
           if (remoteTs <= lastPushedAt + 500) { setStatus('on'); return; }
+          // Dedupe: don't re-render every 6s when nothing actually changed.
+          var remoteRaw = JSON.stringify(r.data.data);
+          if (remoteRaw === JSON.stringify(DORM.store.get()) || remoteRaw === lastAppliedRaw) {
+            setStatus('on'); return;
+          }
+          // Don't let an empty snapshot wipe our populated member list.
+          if ((r.data.data.members || []).length === 0 && (DORM.store.get().members || []).length > 0) {
+            setStatus('on'); return;
+          }
+          lastAppliedRaw = remoteRaw;
           applying = true;
           try {
             var lang = DORM.i18n.getLang();

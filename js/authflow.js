@@ -135,7 +135,7 @@
     var sync = DORM.auth.cellSync(cellId);
     DORM.sync = sync;
     if (!mounted) { DORM.ui.bind(mainEl, modalEl); mounted = true; }
-    DORM.store.subscribe(function () { DORM.ui.render(); });
+    DORM.store.subscribe(function () { DORM.ui.renderSafe(); });
     sync.onStatus(function (s) {
       var dot = document.getElementById('syncDot');
       if (dot) { dot.className = 'sync-dot ' + s; dot.title = 'sync: ' + s; }
@@ -157,8 +157,12 @@
         });
       });
       showAdminButton();
+      DORM.store.pruneProofs();
       DORM.ui.render();
     });
+    if (!current._prune) {
+      current._prune = setInterval(function () { DORM.store.pruneProofs(); }, 3600000);
+    }
   }
 
   function showAdminButton() {
