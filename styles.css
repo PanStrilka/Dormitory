@@ -90,6 +90,7 @@ html { scroll-behavior: smooth; }
 .bottom-nav .tab .ti {
   font-size: 22px; line-height: 1; filter: grayscale(.35) opacity(.8);
   transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .2s;
+  position: relative;
 }
 .bottom-nav .tab .tl { transition: opacity .2s; opacity: .85; }
 .bottom-nav .tab.active { color: var(--brand); }
@@ -192,6 +193,42 @@ table.rota .ra { text-align: right; width: 44px; }
 .exp-row .ed { flex: 1; min-width: 0; }
 .exp-row .et { font-weight: 600; font-size: 13.5px; }
 .exp-row .ea { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+
+/* settle up (repay debt) */
+.btn.full { width: 100%; justify-content: center; margin-top: 4px; }
+.settle-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.settle-head .nm { font-weight: 700; }
+.settle-head .arrow { color: var(--muted); }
+.settle-way { padding: 10px 0; }
+.or-sep { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; margin: 4px 0; }
+.or-sep::before, .or-sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.settle-hist { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.settle-hist:last-child { border-bottom: 0; }
+.settle-hist.bad { background: color-mix(in srgb, var(--danger) 8%, transparent); border-radius: 8px; }
+.settle-hist .arrow { color: var(--muted); }
+.settle-hist .sh-mid { flex: 1; min-width: 0; }
+.settle-hist .sh-mid .amt { font-weight: 700; font-size: 13.5px; }
+.proof-badge { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--bg); }
+.proof-badge.ok { color: var(--ok); }
+.proof-badge.neg { color: var(--danger); }
+.proof-badge.muted { color: var(--muted); }
+.proof-img { display: block; width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10px; margin: 10px 0; background: var(--bg); }
+
+/* comments on purchases */
+.cbtn { position: relative; }
+.cbtn .cn { font-weight: 700; font-size: 11px; }
+.dot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--card); }
+.bottom-nav .tab .ti .dot { top: -3px; right: -8px; border-color: var(--card); }
+.cm-subject { padding: 2px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.cm-thread { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.cm-row { display: flex; gap: 8px; align-items: flex-start; }
+.cm-row.mine { flex-direction: row-reverse; text-align: right; }
+.cm-row .cm-body { flex: 1; min-width: 0; background: var(--bg); border-radius: 12px; padding: 7px 10px; }
+.cm-row.mine .cm-body { background: color-mix(in srgb, var(--brand) 16%, transparent); }
+.cm-head { font-size: 12px; margin-bottom: 2px; }
+.cm-text { font-size: 13.5px; white-space: pre-wrap; word-break: break-word; }
+.cm-compose { display: flex; gap: 8px; align-items: flex-end; margin-top: 12px; }
+.cm-compose textarea { flex: 1; resize: vertical; min-height: 40px; font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: inherit; }
 
 /* leaderboard */
 .lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -326,8 +363,35 @@ table.rota .ra { text-align: right; width: 44px; }
   100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1) rotate(var(--r)); }
 }
 
+/* active tab: soft pill + a springy pop each time you switch to it */
+.bottom-nav .tab.active { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+@keyframes tabPop {
+  0%   { transform: translateY(-3px) scale(1.25); }
+  45%  { transform: translateY(-7px) scale(1.42); }
+  100% { transform: translateY(-3px) scale(1.25); }
+}
+.bottom-nav .tab.active .ti { animation: tabPop .42s cubic-bezier(.34,1.56,.64,1); }
+
+/* celebration toast — friendly "well done" banner on a 100% duty */
+.party-toast {
+  position: fixed; left: 50%; top: 16%; transform: translateX(-50%); z-index: 45;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff;
+  padding: 12px 22px; border-radius: 999px; font-weight: 800; font-size: 15px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.28); pointer-events: none; white-space: nowrap;
+  max-width: 88vw; text-align: center;
+  animation: partyToast 1.9s cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes partyToast {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(.8); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.04); }
+  22%  { transform: translateX(-50%) translateY(0) scale(1); }
+  78%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.96); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .main > .card, .main > .segmented, .badge.you, .confetti { animation: none !important; }
+  .main > .card, .main > .segmented, .badge.you, .confetti, .party-toast,
+  .bottom-nav .tab.active .ti { animation: none !important; }
   .bottom-nav .tab .ti, .btn, .chip, .segmented .seg { transition: none !important; }
 }
 @media (min-width: 620px) { .modal { bottom: auto; top: 50%; transform: translate(-50%,-50%); border-radius: 20px; } @keyframes up { from{opacity:.6} to{opacity:1} } }

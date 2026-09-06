@@ -81,6 +81,26 @@ create table if not exists receipt_items (
 );
 
 -- ----------------------------------------------------------------------------
+-- 5b) Debt-repayment proofs. When someone repays by BANK TRANSFER they can
+--     attach a photo of the confirmation; the `verify-transfer` Edge Function
+--     asks AI whether it looks genuine and matches the expected amount.
+--     `settlement_id` links to the settlement inside the shared JSON blob.
+--     The raw photo is kept in the `receipts` bucket until `expires_at`.
+-- ----------------------------------------------------------------------------
+create table if not exists transfers (
+  id            uuid primary key default gen_random_uuid(),
+  settlement_id text,                     -- id of the settlement in the blob
+  amount        numeric,
+  currency      text,
+  storage_path  text,                     -- path in the 'receipts' Storage bucket
+  status        text not null default 'pending'
+                check (status in ('pending','verified','rejected','unclear','failed')),
+  ai_reason     text,                     -- short explanation from the AI check
+  created_at    timestamptz default now(),
+  expires_at    timestamptz default (now() + interval '30 days')
+);
+
+-- ----------------------------------------------------------------------------
 -- 6) Web-push subscriptions (one per device that opts in to notifications).
 -- ----------------------------------------------------------------------------
 create table if not exists push_subscriptions (
@@ -100,7 +120,7 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'bulka_state','cell_config','members','receipts','receipt_items','push_subscriptions'
+    'bulka_state','cell_config','members','receipts','receipt_items','transfers','push_subscriptions'
   ] loop
     execute format('alter table %I enable row level security;', t);
     execute format($p$
@@ -109,6 +129,26 @@ begin
         for all to anon using (true) with check (true);
     $p$, t, t);
   end loop;
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- Storage policies: allow the anon key to upload to / read from the 'receipts'
+-- bucket. Storage has its OWN row-level security (on storage.objects), separate
+-- from the table policies above, so the anon client can't upload without these.
+-- Create the bucket first (Storage -> New bucket -> name "receipts", Private),
+-- then run this. Safe to re-run.
+-- ----------------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.tables
+             where table_schema = 'storage' and table_name = 'objects') then
+    drop policy if exists "receipts anon insert" on storage.objects;
+    drop policy if exists "receipts anon select" on storage.objects;
+    create policy "receipts anon insert" on storage.objects
+      for insert to anon with check (bucket_id = 'receipts');
+    create policy "receipts anon select" on storage.objects
+      for select to anon using (bucket_id = 'receipts');
+  end if;
 end $$;
 
 -- ----------------------------------------------------------------------------

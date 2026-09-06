@@ -14,6 +14,7 @@
   var profileSub = 'leaderboard'; // sub-view inside the Profile hub
   var viewDate = new Date();      // for roster navigation
   var modalEl, mainEl;
+  var navSig = '';                // last-rendered nav signature (avoids replaying the tab pop)
 
   // ---------- small helpers ----------
   function esc(s) {
@@ -44,6 +45,57 @@
   function money(n) {
     return DORM.expenses.round2(n).toLocaleString('cs-CZ') + ' ' + esc(state().settings.currency);
   }
+  // Downscale an image File to a small JPEG data URL so a proof photo can be
+  // kept inline in the state (works offline, syncs across phones). Resolves
+  // null on any error or a non-image.
+  function downscaleImage(file, maxDim, quality) {
+    return new Promise(function (resolve) {
+      if (!file || !/^image\//.test(file.type || '')) { resolve(null); return; }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          var scale = Math.min(1, (maxDim || 800) / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var cv = document.createElement('canvas');
+          cv.width = cw; cv.height = ch;
+          cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          resolve(cv.toDataURL('image/jpeg', quality || 0.55));
+        } catch (e) { resolve(null); }
+        finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+
+  // ---- comment unread tracking (per device, not synced) ----
+  var CSEEN_KEY = 'bulka_comments_seen';
+  function loadSeen() {
+    try { return JSON.parse(localStorage.getItem(CSEEN_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function markSeen(expenseId) {
+    var list = DORM.comments.forExpense(state(), expenseId);
+    var newest = list.length ? list[list.length - 1].ts : Date.now();
+    var m = loadSeen();
+    if ((m[expenseId] || 0) < newest) { m[expenseId] = newest; }
+    try { localStorage.setItem(CSEEN_KEY, JSON.stringify(m)); } catch (e) {}
+  }
+  // A thread is "unread" when its newest comment is not mine and newer than
+  // what this device last saw.
+  function isUnread(expenseId) {
+    var list = DORM.comments.forExpense(state(), expenseId);
+    if (!list.length) return false;
+    var last = list[list.length - 1];
+    var me = state().settings.me;
+    if (me && last.by === me) return false;
+    return last.ts > (loadSeen()[expenseId] || 0);
+  }
+  function anyUnread() {
+    return (state().expenses || []).some(function (e) { return isUnread(e.id); });
+  }
   function prefersReducedMotion() {
     try { return window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
     catch (e) { return false; }
@@ -70,6 +122,30 @@
       fx.appendChild(s);
       (function (el) { setTimeout(function () { el.remove(); }, 1100); })(s);
     }
+  }
+
+  // Light haptic feedback on supported phones (respects reduced-motion).
+  function haptic(pattern) {
+    if (prefersReducedMotion()) return;
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  }
+
+  // Friendly "well done!" banner that floats in and fades out.
+  function toast(msg) {
+    if (prefersReducedMotion() || !msg) return;
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var el = document.createElement('div');
+    el.className = 'party-toast';
+    el.textContent = msg;
+    fx.appendChild(el);
+    setTimeout(function () { el.remove(); }, 1900);
+  }
+
+  // Pick one of the localized celebration lines at random.
+  function celebrateLine() {
+    var lines = String(t('celebrate_lines') || '').split('|');
+    return lines[Math.floor(Math.random() * lines.length)] || '';
   }
 
   function roleName(id) {
@@ -123,11 +199,19 @@
       ['expenses', t('tab_expenses'), '💰'],
       ['profile', t('tab_profile'), '👤']
     ];
+    var expUnread = anyUnread();
+    // Only rebuild the nav when the active tab or the unread dot actually
+    // changes — otherwise every state change (e.g. ticking a task) would replay
+    // the active-tab pop animation.
+    var sig = currentTab + '|' + (expUnread ? '1' : '0');
+    if (sig === navSig) return;
+    navSig = sig;
     document.getElementById('nav').innerHTML = tabs.map(function (x) {
       var active = currentTab === x[0];
+      var dot = (x[0] === 'expenses' && expUnread) ? '<span class="dot"></span>' : '';
       return '<button class="tab' + (active ? ' active' : '') + '" data-tab="' + x[0] +
         '" aria-current="' + (active ? 'page' : 'false') + '">' +
-        '<span class="ti">' + x[2] + '</span><span class="tl">' + esc(x[1]) + '</span></button>';
+        '<span class="ti">' + x[2] + dot + '</span><span class="tl">' + esc(x[1]) + '</span></button>';
     }).join('');
   }
 
@@ -287,15 +371,59 @@
         (DORM.receipts && DORM.receipts.enabled()
           ? '<button class="btn ghost sm" data-act="receipt" data-id="' + e.id + '" title="' +
             t('receipt_view') + '">📎</button>' : '') +
+        commentBtn(e.id) +
         '<button class="btn ghost sm" data-act="del-exp" data-id="' + e.id + '">✕</button></div>';
     }).join('');
     hist += '</section>';
 
-    return settle + add + hist;
+    return settle + add + repaymentsCard() + hist;
+  }
+
+  // Small coloured badge describing a proof's verification state.
+  function proofBadge(rec) {
+    var map = {
+      verified: ['ok', '✓ ' + t('settle_proof_verified')],
+      rejected: ['neg', '⚠ ' + t('settle_proof_rejected')],
+      pending: ['muted', '… ' + t('settle_proof_pending')],
+      attached: ['muted', '📎 ' + t('settle_proof_attached')]
+    };
+    var b = map[rec.proofStatus];
+    if (!b) return '';
+    return '<span class="proof-badge ' + b[0] + '">' + b[1] + '</span>';
+  }
+
+  // History of money-transfer repayments (the "buy for everyone" path is a
+  // normal expense and already appears in the expenses history above).
+  function repaymentsCard() {
+    var st = state();
+    var list = st.settlements || [];
+    var card = '<section class="card"><h2>🤝 ' + t('settle_repayments') + '</h2>';
+    if (!list.length) return card + '<p class="muted sm">' + t('settle_none') + '</p></section>';
+    card += list.map(function (r) {
+      return '<div class="settle-hist' + (r.proofStatus === 'rejected' ? ' bad' : '') + '">' +
+        avatar(member(r.from), 24) +
+        '<span class="arrow">→</span>' + avatar(member(r.to), 24) +
+        '<div class="sh-mid"><div class="amt">' + money(r.amount) + '</div>' +
+        (r.note ? '<div class="muted sm">' + esc(r.note) + '</div>' : '') +
+        proofBadge(r) + '</div>' +
+        ((r.proof || r.proofPath)
+          ? '<button class="btn ghost sm" data-act="settle-proof" data-id="' + r.id +
+            '" title="' + t('settle_view_proof') + '">🧾</button>' : '') +
+        '<button class="btn ghost sm" data-act="del-settle" data-id="' + r.id + '">✕</button></div>';
+    }).join('');
+    return card + '</section>';
   }
 
   function catIcon(c) {
     return { cat_hygiene: '🧼', cat_cleaning: '🧴', cat_kitchen: '🍽️', cat_other: '📦' }[c] || '📦';
+  }
+
+  // 💬 button for an expense row: shows the comment count and an unread dot.
+  function commentBtn(expenseId) {
+    var n = DORM.comments.count(state(), expenseId);
+    return '<button class="btn ghost sm cbtn" data-act="comments" data-id="' + expenseId +
+      '" title="' + t('cm_title') + '">💬' + (n ? ' <span class="cn">' + n + '</span>' : '') +
+      (isUnread(expenseId) ? '<span class="dot"></span>' : '') + '</button>';
   }
 
   // ---------- LEADERBOARD ----------
@@ -450,6 +578,10 @@
       icon = '💰'; text = t('act_expense') + ' · ' + esc(ev.desc || '') + ' (' + money(ev.amount) + ')';
     } else if (ev.type === 'buy') {
       icon = '🛒'; text = t('act_bought') + ' · ' + esc(ev.item || '');
+    } else if (ev.type === 'comment') {
+      var snip = (ev.text || '').slice(0, 60) + ((ev.text || '').length > 60 ? '…' : '');
+      icon = '💬'; text = t('act_comment') + (ev.desc ? ' · ' + esc(ev.desc) : '') +
+        ' · „' + esc(snip) + '“';
     } else {
       var toN2 = member(ev.to) ? member(ev.to).name : '—';
       icon = '🤝'; text = t('act_settle') + ' → ' + esc(toN2) + ' (' + money(ev.amount) + ')';
@@ -536,7 +668,10 @@
         }).join('') + '</section>';
     }
 
-    var sync = st.settings.sync || {};
+    var sync = st.settings.sync ||
+      (st.settings.syncDisabled ? {} : (DORM.defaultSync() || {}));
+    var syncActive = !!(st.settings.sync ||
+      (!st.settings.syncDisabled && DORM.defaultSync()));
     return '<section class="card"><h2>' + t('set_members') + '</h2>' + rows +
       '<div class="row gap">' +
       (vs.length < 8
@@ -584,10 +719,10 @@
       '<input type="text" id="syncUrl" placeholder="https://xxxx.supabase.co" value="' +
       esc(sync.url || '') + '"></label>' +
       '<label class="field"><span>' + t('set_sync_key') + '</span>' +
-      '<input type="text" id="syncKey" placeholder="eyJhbGciOi..." value="' +
+      '<input type="text" id="syncKey" placeholder="sb_publishable_… / eyJ…" value="' +
       esc(sync.key || '') + '"></label>' +
       '<div class="row gap"><button class="btn" data-act="sync-on">' + t('set_sync_save') +
-      '</button>' + (st.settings.sync
+      '</button>' + (syncActive
         ? '<button class="btn ghost" data-act="sync-off">' + t('set_sync_off') + '</button>' : '') +
       '</div>' +
       '<div class="row gap mt"><button class="btn ghost" data-act="export">⬇ ' + t('set_export') +
@@ -634,24 +769,32 @@
       '">' + t('swap_confirm') + '</button></div>');
   }
 
-  function addExpenseModal() {
+  // `prefill` (optional): { desc, amount, payer, split:[ids], note } — used when
+  // repaying a debt by "buying an equivalent thing for everyone".
+  function addExpenseModal(prefill) {
     var st = state();
+    prefill = prefill || {};
     var payerOpts = verified().map(function (m) {
-      return '<option value="' + m.id + '"' + (st.settings.me === m.id ? ' selected' : '') + '>' +
+      var sel = prefill.payer ? (prefill.payer === m.id) : (st.settings.me === m.id);
+      return '<option value="' + m.id + '"' + (sel ? ' selected' : '') + '>' +
         esc(m.name) + '</option>';
     }).join('');
     var catOpts = DORM.expenses.CATEGORIES.map(function (c) {
       return '<option value="' + c + '">' + t(c) + '</option>';
     }).join('');
     var splitBoxes = verified().map(function (m) {
+      var on = prefill.split ? prefill.split.indexOf(m.id) !== -1 : true;
       return '<label class="chk"><input type="checkbox" class="splitM" value="' + m.id +
-        '" checked> ' + esc(m.name) + '</label>';
+        '"' + (on ? ' checked' : '') + '> ' + esc(m.name) + '</label>';
     }).join('');
     openModal('<h3>' + t('exp_add') + '</h3>' +
+      (prefill.note ? '<p class="muted sm">' + esc(prefill.note) + '</p>' : '') +
       '<label class="field"><span>' + t('exp_desc') + '</span>' +
-      '<input type="text" id="expDesc" placeholder="' + t('exp_desc') + '"></label>' +
+      '<input type="text" id="expDesc" placeholder="' + t('exp_desc') + '" value="' +
+      esc(prefill.desc || '') + '"></label>' +
       '<label class="field"><span>' + t('exp_amount') + ' (' + esc(st.settings.currency) +
-      ')</span><input type="number" id="expAmount" inputmode="decimal" min="0" step="0.01"></label>' +
+      ')</span><input type="number" id="expAmount" inputmode="decimal" min="0" step="0.01"' +
+      (prefill.amount ? ' value="' + esc(prefill.amount) + '"' : '') + '></label>' +
       '<label class="field"><span>' + t('exp_payer') + '</span><select id="expPayer">' +
       payerOpts + '</select></label>' +
       '<label class="field"><span>' + t('exp_category') + '</span><select id="expCat">' +
@@ -664,6 +807,100 @@
         : '') +
       '<div class="row gap end"><button class="btn ghost" data-act="modal-close">' + t('cancel') +
       '</button><button class="btn" data-act="exp-save">' + t('exp_save') + '</button></div>');
+  }
+
+  // Repay a debt from -> to. Two paths from the roadmap: a money transfer
+  // (with an optional proof photo, AI-checked when the backend is on) or
+  // buying something of equivalent value for everyone (a normal expense).
+  function settleModal(from, to, amount) {
+    var fromN = (member(from) || {}).name || '—';
+    var toN = (member(to) || {}).name || '—';
+    var cur = state().settings.currency;
+    var aiHint = (DORM.settleproof && DORM.settleproof.enabled())
+      ? t('settle_proof_ai_on') : t('settle_proof_ai_off');
+    openModal('<h3>🤝 ' + t('settle') + '</h3>' +
+      '<div class="settle-head">' + avatar(member(from), 30) +
+      '<span class="nm">' + esc(fromN) + '</span><span class="arrow">→</span>' +
+      avatar(member(to), 30) + '<span class="nm">' + esc(toN) + '</span></div>' +
+
+      '<div class="settle-way"><div class="freq-h">💸 ' + t('settle_way_transfer') + '</div>' +
+      '<label class="field"><span>' + t('exp_amount') + ' (' + esc(cur) + ')</span>' +
+      '<input type="number" id="setAmount" inputmode="decimal" min="0" step="0.01" value="' +
+      esc(amount) + '"></label>' +
+      '<label class="field"><span>' + t('settle_note') + '</span>' +
+      '<input type="text" id="setNote" placeholder="' + t('settle_note_ph') + '"></label>' +
+      '<label class="field"><span>📷 ' + t('settle_proof') + ' · ' + t('exp_receipt_optional') +
+      '</span><input type="file" id="setProof" accept="image/*" capture="environment"></label>' +
+      '<p class="muted sm">' + aiHint + '</p>' +
+      '<button class="btn full" data-act="settle-transfer-save" data-from="' + from +
+      '" data-to="' + to + '">' + t('settle_confirm_transfer') + '</button></div>' +
+
+      '<div class="or-sep"><span>' + t('settle_or') + '</span></div>' +
+
+      '<div class="settle-way"><div class="freq-h">🛍️ ' + t('settle_way_goods') + '</div>' +
+      '<p class="muted sm">' + t('settle_way_goods_desc') + '</p>' +
+      '<button class="btn ghost full" data-act="settle-goods" data-from="' + from +
+      '" data-amt="' + esc(amount) + '">' + t('settle_confirm_goods') + '</button></div>' +
+
+      '<div class="row end mt"><button class="btn ghost" data-act="modal-close">' +
+      t('cancel') + '</button></div>');
+  }
+
+  function settleProofModal(id) {
+    var rec = (state().settlements || []).filter(function (s) { return s.id === id; })[0];
+    if (!rec) return;
+    var body;
+    if (rec.proof) body = '<img class="proof-img" src="' + esc(rec.proof) + '" alt="proof">';
+    else if (rec.proofPath) body = '<p class="muted sm">' + t('settle_proof_remote') + '</p>';
+    else body = '<p class="muted">' + t('receipt_none') + '</p>';
+    openModal('<h3>🧾 ' + t('settle_view_proof') + '</h3>' +
+      '<div class="muted sm">' + esc((member(rec.from) || {}).name) + ' → ' +
+      esc((member(rec.to) || {}).name) + ' · ' + money(rec.amount) + '</div>' +
+      proofBadge(rec) + body +
+      '<div class="row end"><button class="btn" data-act="modal-close">OK</button></div>');
+  }
+
+  // Comment thread for one purchase (expense). Read + write, chat-style.
+  function commentsModal(expenseId) {
+    var st = state();
+    var e = (st.expenses || []).filter(function (x) { return x.id === expenseId; })[0];
+    if (!e) return;
+    var list = DORM.comments.forExpense(st, expenseId);
+    var me = st.settings.me;
+    var thread = list.length ? list.map(function (c) {
+      var mine = me && c.by === me;
+      return '<div class="cm-row' + (mine ? ' mine' : '') + '">' + avatar(member(c.by), 26) +
+        '<div class="cm-body"><div class="cm-head"><b>' + esc((member(c.by) || {}).name || '—') +
+        '</b> <span class="muted sm">' + timeAgo(c.ts) + '</span></div>' +
+        '<div class="cm-text">' + esc(c.text) + '</div></div>' +
+        (mine ? '<button class="btn ghost xs" data-act="comment-del" data-id="' + c.id +
+          '" data-exp="' + expenseId + '" title="' + t('exp_delete') + '">✕</button>' : '') +
+        '</div>';
+    }).join('') : '<p class="muted sm">' + t('cm_none') + '</p>';
+
+    var compose = me
+      ? '<div class="cm-compose"><textarea id="cmText" rows="2" maxlength="1000" placeholder="' +
+        t('cm_placeholder') + '"></textarea>' +
+        '<button class="btn" data-act="comment-add" data-id="' + expenseId + '">' +
+        t('cm_send') + '</button></div>'
+      : '<p class="muted sm">' + t('cm_need_me') + '</p>';
+
+    openModal('<h3>💬 ' + t('cm_title') + '</h3>' +
+      '<div class="cm-subject muted sm">' + catIcon(e.category) + ' ' +
+      esc(e.desc || t('cat_other')) + ' · ' + money(e.amount) + ' · ' +
+      esc((member(e.payer) || {}).name || '—') + '</div>' +
+      '<div class="cm-thread">' + thread + '</div>' + compose +
+      '<div class="row end mt"><button class="btn ghost" data-act="modal-close">' +
+      t('cancel') + '</button></div>');
+
+    // Opening the thread clears its unread state on this device; refresh the
+    // tab badge and row dots behind the modal (render leaves the modal alone).
+    markSeen(expenseId);
+    render();
+    var box = document.querySelector('.cm-thread');
+    if (box) box.scrollTop = box.scrollHeight;
+    var ta = document.getElementById('cmText');
+    if (ta) ta.focus();
   }
 
   function receiptModal(expenseId) {
@@ -829,6 +1066,10 @@
           var done = comp ? tasks.filter(function (x) { return comp.items[x.id]; }).length : 0;
           if (tasks.length && done === tasks.length) {
             celebrate(rect.left + rect.width / 2, rect.top);
+            toast(celebrateLine());
+            haptic([14, 40, 22]); // celebratory buzz
+          } else {
+            haptic(10); // gentle tick on each check-off
           }
         }
       } else if (el.getAttribute('data-act') === 'm-name') {
@@ -908,7 +1149,8 @@
       var msg = document.getElementById('notifyMsg');
       var st = state();
       if (!DORM.push || !DORM.push.supported()) { if (msg) msg.textContent = t('notify_unsupported'); return; }
-      if (!(st.settings.sync && st.settings.sync.url)) { if (msg) msg.textContent = t('notify_need_sync'); return; }
+      var esync = st.settings.sync || (st.settings.syncDisabled ? null : DORM.defaultSync());
+      if (!(esync && esync.url)) { if (msg) msg.textContent = t('notify_need_sync'); return; }
       if (!st.settings.vapidPublicKey) { if (msg) msg.textContent = t('notify_need_vapid'); return; }
       var meName = member(st.settings.me) ? member(st.settings.me).name : null;
       if (msg) msg.textContent = '…';
@@ -995,9 +1237,28 @@
     },
     'del-exp': function (el) {
       var id = el.getAttribute('data-id');
-      S.update(function (s) { DORM.expenses.removeExpense(s, id); });
+      S.update(function (s) {
+        DORM.expenses.removeExpense(s, id);
+        DORM.comments.removeForExpense(s, id);
+      });
     },
     'receipt': function (el) { receiptModal(el.getAttribute('data-id')); },
+    'comments': function (el) { commentsModal(el.getAttribute('data-id')); },
+    'comment-add': function (el) {
+      var expenseId = el.getAttribute('data-id');
+      var ta = document.getElementById('cmText');
+      var text = ta ? ta.value : '';
+      if (!(text || '').trim()) return;
+      S.update(function (s) { DORM.comments.add(s, expenseId, s.settings.me, text); });
+      markSeen(expenseId);          // my own message counts as read
+      commentsModal(expenseId);     // refresh the thread with the new comment
+    },
+    'comment-del': function (el) {
+      var id = el.getAttribute('data-id');
+      var expenseId = el.getAttribute('data-exp');
+      S.update(function (s) { DORM.comments.remove(s, id); });
+      commentsModal(expenseId);
+    },
     'sh-quick': function (el) {
       var key = el.getAttribute('data-key');
       S.update(function (s) { DORM.shopping.addCommon(s, key, s.settings.me); });
@@ -1031,11 +1292,59 @@
       closeModal();
     },
     'settle': function (el) {
-      if (!confirm(t('exp_settle_confirm'))) return;
-      S.update(function (s) {
-        DORM.expenses.recordSettlement(s, el.getAttribute('data-from'),
-          el.getAttribute('data-to'), +el.getAttribute('data-amt'));
+      settleModal(el.getAttribute('data-from'), el.getAttribute('data-to'),
+        +el.getAttribute('data-amt'));
+    },
+    'settle-transfer-save': function (el) {
+      var from = el.getAttribute('data-from'), to = el.getAttribute('data-to');
+      var amount = parseFloat(document.getElementById('setAmount').value);
+      var note = (document.getElementById('setNote').value || '').trim();
+      if (!(amount > 0)) return;
+      var fileInput = document.getElementById('setProof');
+      var file = fileInput && fileInput.files && fileInput.files[0];
+      var cur = state().settings.currency;
+      // Downscale the proof to a small inline thumbnail (works offline) first,
+      // then record the settlement, then optionally push it for an AI check.
+      downscaleImage(file, 900, 0.55).then(function (thumb) {
+        var recId;
+        S.update(function (s) {
+          var rec = DORM.expenses.recordSettlement(s, {
+            from: from, to: to, amount: amount, note: note, proof: thumb || ''
+          });
+          recId = rec.id;
+        });
+        closeModal();
+        if (file && DORM.settleproof && DORM.settleproof.enabled()) {
+          S.update(function (s) { DORM.expenses.updateSettlement(s, recId, { proofStatus: 'pending' }); });
+          DORM.settleproof.upload(recId, amount, cur, file).then(function (res) {
+            var v = res && res.verdict;
+            var status = v === 'verified' ? 'verified'
+              : v === 'rejected' ? 'rejected' : 'attached';
+            S.update(function (s) {
+              DORM.expenses.updateSettlement(s, recId, { proofStatus: status, proofPath: res.path || '' });
+            });
+          }).catch(function () {
+            S.update(function (s) { DORM.expenses.updateSettlement(s, recId, { proofStatus: 'attached' }); });
+          });
+        }
       });
+    },
+    'settle-goods': function (el) {
+      var from = el.getAttribute('data-from');
+      var amt = +el.getAttribute('data-amt');
+      closeModal();
+      addExpenseModal({
+        payer: from,
+        amount: amt ? DORM.expenses.round2(amt) : '',
+        split: verified().map(function (m) { return m.id; }),
+        note: t('settle_goods_hint')
+      });
+    },
+    'settle-proof': function (el) { settleProofModal(el.getAttribute('data-id')); },
+    'del-settle': function (el) {
+      if (!confirm(t('settle_del_confirm'))) return;
+      var id = el.getAttribute('data-id');
+      S.update(function (s) { DORM.expenses.removeSettlement(s, id); });
     },
     'token': function (el) {
       var id = el.getAttribute('data-id');
@@ -1070,11 +1379,15 @@
     'sync-on': function () {
       var url = document.getElementById('syncUrl').value.trim();
       var key = document.getElementById('syncKey').value.trim();
-      S.update(function (s) { s.settings.sync = (url && key) ? { url: url, key: key } : null; });
-      DORM.sync.enable(state().settings.sync);
+      S.update(function (s) {
+        s.settings.sync = (url && key) ? { url: url, key: key } : null;
+        s.settings.syncDisabled = false; // re-enable (falls back to baked-in default if fields empty)
+      });
+      var cfg = state().settings.sync || DORM.defaultSync();
+      if (cfg) DORM.sync.enable(cfg); else DORM.sync.disable();
     },
     'sync-off': function () {
-      S.update(function (s) { s.settings.sync = null; });
+      S.update(function (s) { s.settings.sync = null; s.settings.syncDisabled = true; });
       DORM.sync.disable();
     }
   };
