@@ -35,7 +35,8 @@
     }).catch(function (e) {
       screen('<div class="auth-card"><div class="auth-logo">🧽</div>' +
         '<p class="err-msg">' + t('auth_err_init') + '</p>' +
-        '<p class="muted sm">' + esc(e && e.message || '') + '</p></div>');
+        '<p class="muted sm">' + esc(e && e.message || '') + '</p>' +
+        '<button class="btn ghost" data-authact="localmode">' + t('auth_use_local') + '</button></div>');
     });
   }
 
@@ -56,7 +57,8 @@
       });
     }).catch(function (e) {
       screen('<div class="auth-card"><p class="err-msg">' + esc(e && e.message || 'error') + '</p>' +
-        '<button class="btn ghost" data-authact="signout">' + t('auth_signout') + '</button></div>');
+        '<button class="btn ghost" data-authact="signout">' + t('auth_signout') + '</button>' +
+        '<button class="btn link" data-authact="localmode">' + t('auth_use_local') + '</button></div>');
     });
   }
 
@@ -237,6 +239,10 @@
       } else if (act === 'savename') {
         var name = (document.getElementById('authName').value || '').trim();
         DORM.auth.ensureProfile(name).then(route);
+      } else if (act === 'localmode') {
+        // Escape hatch: fall back to the local honor-based app (remembers ?auth=0).
+        try { localStorage.setItem('bulka_authmode', '0'); } catch (e2) {}
+        location.href = location.origin + location.pathname + '?auth=0';
       } else if (act === 'signout') {
         DORM.auth.signOut().then(function () { location.reload(); });
       } else if (act === 'join') {

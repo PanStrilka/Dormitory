@@ -20,11 +20,15 @@
 
   function enabled() {
     try {
+      // ?auth=1 forces accounts on, ?auth=0 forces the local app on — both are
+      // remembered, so the choice sticks across reloads (escape hatch).
       if (/[?&]auth=1\b/.test(location.search)) { localStorage.setItem('bulka_authmode', '1'); }
-      if (/[?&]auth=0\b/.test(location.search)) { localStorage.removeItem('bulka_authmode'); }
-      if (localStorage.getItem('bulka_authmode') === '1') return true;
+      if (/[?&]auth=0\b/.test(location.search)) { localStorage.setItem('bulka_authmode', '0'); }
+      var flag = localStorage.getItem('bulka_authmode');
+      if (flag === '1') return true;
+      if (flag === '0') return false;
     } catch (e) {}
-    return !!(DORM.CONFIG && DORM.CONFIG.authMode);
+    return !!(DORM.CONFIG && DORM.CONFIG.authMode); // default: accounts on
   }
 
   function authRedirect() {
