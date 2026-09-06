@@ -19,6 +19,7 @@
   var pollTimer = null;
   var lastPushedAt = 0;
   var applying = false;    // guard against echo loops
+  var lastAppliedRaw = null; // JSON of the last remote we applied (dedupe re-renders)
 
   function headers() {
     return {
@@ -64,10 +65,25 @@
       .then(function (rows) {
         if (!rows || !rows.length) { setStatus('on'); return; }
         var remote = rows[0].data;
-        if (!remote) return;
+        if (!remote) { setStatus('on'); return; }
         // Ignore our own just-pushed write bouncing back.
         var remoteTs = new Date(rows[0].updated_at).getTime();
         if (remoteTs <= lastPushedAt + 500) { setStatus('on'); return; }
+
+        // Only touch local state when the remote actually differs from what we
+        // already have — otherwise the 6s poll would re-render the whole app on
+        // every tick, throwing the user out of whatever screen/modal they opened.
+        var remoteRaw = JSON.stringify(remote);
+        var localRaw = JSON.stringify(DORM.store.get());
+        if (remoteRaw === localRaw || remoteRaw === lastAppliedRaw) { setStatus('on'); return; }
+
+        // Never let an empty snapshot wipe a populated one: if the remote has
+        // no members but we do locally, keep ours (our next push repopulates it).
+        var remoteMembers = (remote.members || []).length;
+        var localMembers = (DORM.store.get().members || []).length;
+        if (remoteMembers === 0 && localMembers > 0) { setStatus('on'); return; }
+
+        lastAppliedRaw = remoteRaw;
         applying = true;
         try {
           var lang = DORM.i18n.getLang();

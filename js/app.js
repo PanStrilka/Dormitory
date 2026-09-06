@@ -16,8 +16,8 @@
     var modal = document.getElementById('modal');
     DORM.ui.bind(main, modal);
 
-    // re-render on every state change
-    DORM.store.subscribe(function () { DORM.ui.render(); });
+    // re-render on every state change (deferred while the user is mid-interaction)
+    DORM.store.subscribe(function () { DORM.ui.renderSafe(); });
 
     // sync status indicator
     DORM.sync.onStatus(function (s) {
@@ -32,6 +32,11 @@
     // A user can still turn it off (settings.syncDisabled) in Settings.
     var cfg = st.settings.sync || (st.settings.syncDisabled ? null : DORM.defaultSync());
     if (cfg) DORM.sync.enable(cfg);
+
+    // Auto-delete task-proof photos past the retention window (default 7 days),
+    // now and once an hour while the app is open.
+    DORM.store.pruneProofs();
+    setInterval(function () { DORM.store.pruneProofs(); }, 3600000);
 
     DORM.ui.render();
   }

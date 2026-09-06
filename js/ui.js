@@ -191,6 +191,25 @@
     else if (currentTab === 'profile') mainEl.innerHTML = renderProfile();
   }
 
+  // A background sync update must not yank the screen out from under the user.
+  // If they're mid-interaction (modal, camera, or typing in a field), defer the
+  // re-render until they're done instead of rebuilding #main under them.
+  var pendingRender = false;
+  function isBusy() {
+    if (modalEl && modalEl.classList.contains('open')) return true;
+    if (document.body.classList.contains('cam-open')) return true;
+    var a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return true;
+    return false;
+  }
+  function renderSafe() {
+    if (isBusy()) { pendingRender = true; return; }
+    render();
+  }
+  function flushRender() {
+    if (pendingRender && !isBusy()) { pendingRender = false; render(); }
+  }
+
   function renderTabs() {
     var tabs = [
       ['today', t('tab_today'), '🏠'],
@@ -774,6 +793,10 @@
       '<option value="weekly"' + (proofMode() === 'weekly' ? ' selected' : '') + '>' + t('proof_weekly') + '</option>' +
       '<option value="all"' + (proofMode() === 'all' ? ' selected' : '') + '>' + t('proof_all') + '</option>' +
       '</select></label>' +
+      '<label class="field"><span>' + t('proof_retention') + '</span>' +
+      '<input type="number" min="1" max="365" data-act="proofDays" style="max-width:120px" value="' +
+      esc(st.settings.proofRetentionDays || 7) + '"></label>' +
+      '<p class="muted sm">' + t('proof_retention_hint') + '</p>' +
       '<p class="muted sm">' + (DORM.verifytask && DORM.verifytask.enabled()
         ? '✅ ' + t('proof_ai_on') : '⚠️ ' + t('proof_ai_off')) + '</p></section>' +
 
@@ -817,7 +840,7 @@
       '<div class="modal">' + html + '</div>';
     modalEl.classList.add('open');
   }
-  function closeModal() { modalEl.classList.remove('open'); modalEl.innerHTML = ''; }
+  function closeModal() { modalEl.classList.remove('open'); modalEl.innerHTML = ''; setTimeout(flushRender, 0); }
 
   function swapModal(roleId, wk) {
     var st = state();
@@ -1092,6 +1115,9 @@
       if (b) { currentTab = b.getAttribute('data-tab'); render(); }
     });
 
+    // When the user finishes typing in a field, apply any deferred sync update.
+    document.body.addEventListener('focusout', function () { setTimeout(flushRender, 0); });
+
     document.getElementById('langToggle').addEventListener('click', function () {
       var next = DORM.i18n.getLang() === 'cs' ? 'en' : 'cs';
       DORM.i18n.setLang(next);
@@ -1168,6 +1194,10 @@
         S.update(function (s) { s.settings.lang = el.value; });
       } else if (el.getAttribute('data-act') === 'proofMode') {
         S.update(function (s) { s.settings.proof = el.value || 'off'; });
+      } else if (el.getAttribute('data-act') === 'proofDays') {
+        var days = Math.max(1, Math.min(365, parseInt(el.value, 10) || 7));
+        S.update(function (s) { s.settings.proofRetentionDays = days; });
+        DORM.store.pruneProofs();
       }
     });
 
@@ -1632,5 +1662,5 @@
     inp.click();
   }
 
-  DORM.ui = { bind: bind, render: render };
+  DORM.ui = { bind: bind, render: render, renderSafe: renderSafe };
 })(window.DORM = window.DORM || {});
