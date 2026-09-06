@@ -124,6 +124,12 @@
 2. **Authentication → URL Configuration**:
    - **Site URL:** `https://panstrilka.github.io/Dormitory/`
    - Додай цю ж адресу в **Redirect URLs**.
+   - ⚠️ **Важливо для iPhone (додаток на екрані «Домівки»):** вхід тепер за
+     **6-значним кодом** (лінк з пошти на iOS відкривається в Safari, а не в
+     додатку — там окремі cookies). Щоб код був у листі:
+     **Authentication → Emails → Magic Link** (шаблон) → додай десь у тіло рядок
+     `<p>Kód: <b>{{ .Token }}</b></p>` (поряч з наявним посиланням).
+     Лінк лишається — на комп'ютері/Android можна й далі клікати його.
 3. **SQL Editor → New query** → встав увесь [`supabase/schema-auth.sql`](../supabase/schema-auth.sql) → **Run**.
    *(Він не чіпає теперішні таблиці — живий сайт працює далі.)*
 4. Один раз **увійди** в застосунок своєю поштою (коли підключу екран входу).

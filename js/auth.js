@@ -69,10 +69,18 @@
   }
 
   function signIn(email) {
+    // Sends an email that contains BOTH a 6-digit code and a magic link.
+    // On iOS "add to home screen" apps the link opens in Safari (a separate
+    // cookie jar), so the code path — verifyOtp() below — is what actually
+    // logs you in inside the installed app.
     return client.auth.signInWithOtp({
       email: email,
-      options: { emailRedirectTo: authRedirect() }
+      options: { emailRedirectTo: authRedirect(), shouldCreateUser: true }
     });
+  }
+  // Verify the 6-digit code typed into the app -> session in THIS container.
+  function verifyOtp(email, code) {
+    return client.auth.verifyOtp({ email: email, token: String(code).trim(), type: 'email' });
   }
   function signOut() { return client.auth.signOut(); }
   function user() {
@@ -199,7 +207,7 @@
 
   DORM.auth = {
     enabled: enabled, init: init, onChange: onChange,
-    signIn: signIn, signOut: signOut, user: user, me: me,
+    signIn: signIn, verifyOtp: verifyOtp, signOut: signOut, user: user, me: me,
     ensureProfile: ensureProfile, myProfile: myProfile,
     myMemberships: myMemberships, listCells: listCells, requestJoin: requestJoin,
     cellMembers: cellMembers, setMembership: setMembership, removeMembership: removeMembership,
