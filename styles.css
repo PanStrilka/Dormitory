@@ -72,6 +72,20 @@ html { scroll-behavior: smooth; }
 .sync-dot.error { background: #e74c3c; }
 .sync-dot.off { background: rgba(255,255,255,.35); }
 
+/* auth screens */
+body.auth-screen .bottom-nav { display: none; }
+.auth-wrap { max-width: 460px; margin: 0 auto; padding: 24px 16px; }
+.auth-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 24px 20px; text-align: center; }
+.auth-card.wide { text-align: left; }
+.auth-card h2 { margin: 6px 0 4px; font-size: 20px; }
+.auth-logo { font-size: 44px; line-height: 1; margin-bottom: 6px; }
+.auth-card .field { text-align: left; margin: 14px 0; }
+.auth-card .btn.big { width: 100%; padding: 14px; font-size: 16px; border-radius: 14px; margin-top: 4px; }
+.auth-card .btn.link { margin-top: 12px; }
+.auth-card h3 { font-size: 14px; margin: 14px 0 8px; }
+.auth-card .mt { margin-top: 18px; }
+
 /* bottom navigation (Duolingo-style) */
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
@@ -142,6 +156,21 @@ html { scroll-behavior: smooth; }
 }
 .badge.month { background: color-mix(in srgb, var(--accent) 22%, transparent); color: #8a5a00; margin-top: 10px; }
 .badge.you { background: var(--accent); color: #3a2600; margin-left: 6px; }
+
+/* section heading + today focus */
+.section-h { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; margin: 4px 2px -2px; }
+.center { text-align: center; }
+.celebrate-card { text-align: center; }
+.celebrate-card .big { font-size: 17px; font-weight: 700; margin: 6px 0; }
+.compact-duty { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.compact-duty .role-ic { font-size: 22px; }
+.compact-duty .cd-main { flex: 1; min-width: 0; }
+.compact-duty .cd-role { font-weight: 700; font-size: 14px; }
+.compact-duty .who { gap: 6px; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.compact-duty .cd-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.compact-duty .mini-bar { width: 64px; height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.compact-duty .mini-bar span { display: block; height: 100%; background: var(--brand); border-radius: 999px; transition: width .4s; }
+.compact-duty .pct2 { font-size: 11px; color: var(--muted); font-weight: 700; }
 
 /* duty cards */
 .duty.mine { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent), var(--shadow); }

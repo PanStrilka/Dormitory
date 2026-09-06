@@ -8,6 +8,10 @@
     var st = DORM.store.get();
     DORM.i18n.setLang(st.settings.lang || 'cs');
 
+    // Accounts + multi-cell mode (opt-in via ?auth=1). The flow controller
+    // handles login, cell selection and mounting the app; skip normal boot.
+    if (DORM.auth && DORM.auth.enabled()) { DORM.authflow.start(); return; }
+
     var main = document.getElementById('main');
     var modal = document.getElementById('modal');
     DORM.ui.bind(main, modal);

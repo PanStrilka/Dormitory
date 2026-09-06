@@ -1,0 +1,194 @@
+/*
+ * auth.js — real accounts + multi-cell backend (Supabase Auth).
+ *
+ * Activated only in "auth mode" (URL ?auth=1, or a saved flag, or
+ * CONFIG.authMode), so the normal honor-based single-cell app is untouched
+ * until we switch over. Loads @supabase/supabase-js on demand and exposes:
+ *   - auth: signIn (email magic link/OTP), signOut, session, onChange
+ *   - data: memberships, cells, join requests, admin ops (RLS-enforced)
+ *   - a per-cell sync adapter over the `cell_state` table
+ *
+ * Only the PUBLIC url + publishable key are used (from config.js); RLS in
+ * supabase/schema-auth.sql enforces who can read/write what.
+ */
+(function (DORM) {
+  'use strict';
+
+  var SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  var client = null;
+  var sdkPromise = null;
+
+  function enabled() {
+    try {
+      if (/[?&]auth=1\b/.test(location.search)) { localStorage.setItem('bulka_authmode', '1'); }
+      if (/[?&]auth=0\b/.test(location.search)) { localStorage.removeItem('bulka_authmode'); }
+      if (localStorage.getItem('bulka_authmode') === '1') return true;
+    } catch (e) {}
+    return !!(DORM.CONFIG && DORM.CONFIG.authMode);
+  }
+
+  function authRedirect() {
+    return location.origin + location.pathname + '?auth=1';
+  }
+
+  function loadSDK() {
+    if (sdkPromise) return sdkPromise;
+    sdkPromise = new Promise(function (resolve, reject) {
+      if (window.supabase && window.supabase.createClient) return resolve(window.supabase);
+      var s = document.createElement('script');
+      s.src = SDK_URL;
+      s.onload = function () { resolve(window.supabase); };
+      s.onerror = function () { reject(new Error('sdk-load-failed')); };
+      document.head.appendChild(s);
+    });
+    return sdkPromise;
+  }
+
+  function init() {
+    var c = DORM.CONFIG;
+    if (!c || !c.url || !c.key) return Promise.reject(new Error('no-config'));
+    return loadSDK().then(function (sb) {
+      if (!client) {
+        client = sb.createClient(c.url, c.key, {
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        });
+      }
+      return client.auth.getSession().then(function (r) {
+        return r.data.session;
+      });
+    });
+  }
+
+  function onChange(cb) {
+    if (!client) return;
+    client.auth.onAuthStateChange(function (_evt, session) { cb(session); });
+  }
+
+  function signIn(email) {
+    return client.auth.signInWithOtp({
+      email: email,
+      options: { emailRedirectTo: authRedirect() }
+    });
+  }
+  function signOut() { return client.auth.signOut(); }
+  function user() {
+    return client && client.auth.getUser ? client.auth.getUser() : Promise.resolve({ data: {} });
+  }
+
+  // ---- data ops (RLS enforces permissions) ----
+  function me() { return client.auth.getUser().then(function (r) { return r.data.user; }); }
+
+  function ensureProfile(name) {
+    return me().then(function (u) {
+      if (!u) return null;
+      return client.from('profiles').upsert(
+        { id: u.id, display_name: name || (u.email || '').split('@')[0] },
+        { onConflict: 'id' }
+      ).then(function () { return client.from('profiles').select('*').eq('id', u.id).single(); })
+        .then(function (r) { return r.data; });
+    });
+  }
+
+  function myMemberships() {
+    return me().then(function (u) {
+      if (!u) return [];
+      return client.from('memberships')
+        .select('id, cell_id, room, role, status, cells(name, code)')
+        .eq('user_id', u.id)
+        .then(function (r) { return r.data || []; });
+    });
+  }
+
+  function listCells() {
+    return client.from('cells').select('id, name').order('name')
+      .then(function (r) { return r.data || []; });
+  }
+
+  function requestJoin(cellId, room, displayName) {
+    return me().then(function (u) {
+      return client.from('memberships').insert({
+        user_id: u.id, cell_id: cellId, room: room,
+        status: 'pending', role: 'member', display_name: displayName || null
+      }).select().single().then(function (r) { return r.data; });
+    });
+  }
+
+  function cellMembers(cellId) {
+    return client.from('memberships')
+      .select('id, user_id, room, role, status, display_name, profiles(display_name)')
+      .eq('cell_id', cellId)
+      .then(function (r) { return r.data || []; });
+  }
+
+  function setMembership(id, patch) {
+    return client.from('memberships').update(patch).eq('id', id)
+      .then(function (r) { return r; });
+  }
+  function removeMembership(id) {
+    return client.from('memberships').delete().eq('id', id);
+  }
+  function createCell(name, code) {
+    return me().then(function (u) {
+      return client.from('cells').insert({ name: name, code: code || null, created_by: u.id })
+        .select().single().then(function (r) { return r.data; });
+    });
+  }
+  function myProfile() {
+    return me().then(function (u) {
+      if (!u) return null;
+      return client.from('profiles').select('*').eq('id', u.id).single()
+        .then(function (r) { return r.data; });
+    });
+  }
+
+  // ---- per-cell sync adapter over cell_state (used by the store) ----
+  function cellSync(cellId) {
+    var pollTimer = null, lastPushedAt = 0, applying = false, statusCb = null;
+    function setStatus(s) { if (statusCb) statusCb(s); }
+    function pull() {
+      return client.from('cell_state').select('data, updated_at').eq('cell_id', cellId).maybeSingle()
+        .then(function (r) {
+          if (!r.data || !r.data.data) { setStatus('on'); return; }
+          var remoteTs = new Date(r.data.updated_at).getTime();
+          if (remoteTs <= lastPushedAt + 500) { setStatus('on'); return; }
+          applying = true;
+          try {
+            var lang = DORM.i18n.getLang();
+            DORM.store.replaceState(r.data.data);
+            DORM.i18n.setLang((r.data.data.settings && r.data.data.settings.lang) || lang);
+          } finally { applying = false; }
+          setStatus('on');
+        }).catch(function () { setStatus('error'); });
+    }
+    return {
+      isOn: function () { return true; },
+      onStatus: function (cb) { statusCb = cb; },
+      enable: function () {
+        setStatus('connecting');
+        pull().then(function () { setStatus('on'); });
+        pollTimer = setInterval(pull, 6000);
+      },
+      disable: function () { if (pollTimer) clearInterval(pollTimer); pollTimer = null; },
+      pull: pull,
+      push: function (state) {
+        if (applying) return;
+        lastPushedAt = Date.now();
+        client.from('cell_state').upsert(
+          { cell_id: cellId, data: state, updated_at: new Date().toISOString() },
+          { onConflict: 'cell_id' }
+        ).then(function (r) { setStatus(r.error ? 'error' : 'on'); })
+          .catch(function () { setStatus('error'); });
+      }
+    };
+  }
+
+  DORM.auth = {
+    enabled: enabled, init: init, onChange: onChange,
+    signIn: signIn, signOut: signOut, user: user, me: me,
+    ensureProfile: ensureProfile, myProfile: myProfile,
+    myMemberships: myMemberships, listCells: listCells, requestJoin: requestJoin,
+    cellMembers: cellMembers, setMembership: setMembership, removeMembership: removeMembership,
+    createCell: createCell, cellSync: cellSync,
+    hasClient: function () { return !!client; }
+  };
+})(window.DORM = window.DORM || {});
