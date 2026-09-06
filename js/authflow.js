@@ -11,6 +11,7 @@
   var mainEl, modalEl;
   var current = { cellId: null, role: null, profile: null };
   var mounted = false;
+  var pendingEmail = '';   // email awaiting its 6-digit code
 
   var COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4db6ac', '#f06292', '#a1887f'];
 
@@ -68,9 +69,26 @@
       '<h2>' + t('auth_welcome') + '</h2>' +
       '<p class="muted">' + t('auth_login_hint') + '</p>' +
       '<label class="field"><span>Email</span><input type="email" id="authEmail" ' +
-      'placeholder="you@email.com" autocomplete="email"></label>' +
-      '<button class="btn big" data-authact="signin">' + t('auth_send_link') + '</button>' +
+      'placeholder="you@email.com" autocomplete="email" value="' + esc(pendingEmail) + '"></label>' +
+      '<button class="btn big" data-authact="signin">' + t('auth_send_code') + '</button>' +
       '<div id="authMsg" class="muted sm center"></div></div>');
+  }
+
+  // Enter the 6-digit code from the email — this logs you in inside THIS app
+  // container, which is what makes iOS "add to home screen" installs work.
+  function renderOtp(email) {
+    screen('<div class="auth-card"><div class="auth-logo">✉️</div>' +
+      '<h2>' + t('auth_code_title') + '</h2>' +
+      '<p class="muted">' + t('auth_code_hint') + '<br><b>' + esc(email) + '</b></p>' +
+      '<label class="field"><span>' + t('auth_code_label') + '</span>' +
+      '<input type="text" id="authCode" inputmode="numeric" autocomplete="one-time-code" ' +
+      'maxlength="6" placeholder="123456" style="font-size:22px;letter-spacing:6px;text-align:center"></label>' +
+      '<button class="btn big" data-authact="verifyotp">' + t('auth_code_verify') + '</button>' +
+      '<div id="authMsg" class="muted sm center"></div>' +
+      '<div class="row gap center mt">' +
+      '<button class="btn link" data-authact="resend">' + t('auth_code_resend') + '</button>' +
+      '<button class="btn link" data-authact="backlogin">' + t('auth_code_change') + '</button></div>' +
+      '<p class="muted sm center mt">' + t('auth_code_link_note') + '</p></div>');
   }
 
   function renderName(u) {
@@ -234,8 +252,25 @@
         if (!email) return;
         msg('authMsg', '…');
         DORM.auth.signIn(email).then(function (r) {
-          msg('authMsg', r.error ? (r.error.message || t('auth_err')) : t('auth_link_sent'));
+          if (r.error) { msg('authMsg', r.error.message || t('auth_err')); return; }
+          pendingEmail = email;
+          renderOtp(email);
         }).catch(function () { msg('authMsg', t('auth_err')); });
+      } else if (act === 'verifyotp') {
+        var code = (document.getElementById('authCode').value || '').replace(/\D/g, '');
+        if (code.length < 6) { msg('authMsg', t('auth_code_bad')); return; }
+        msg('authMsg', '…');
+        DORM.auth.verifyOtp(pendingEmail, code).then(function (r) {
+          if (r.error) { msg('authMsg', r.error.message || t('auth_code_bad')); return; }
+          route();
+        }).catch(function () { msg('authMsg', t('auth_code_bad')); });
+      } else if (act === 'resend') {
+        if (!pendingEmail) return renderLogin();
+        msg('authMsg', '…');
+        DORM.auth.signIn(pendingEmail).then(function () { msg('authMsg', t('auth_code_resent')); })
+          .catch(function () { msg('authMsg', t('auth_err')); });
+      } else if (act === 'backlogin') {
+        renderLogin();
       } else if (act === 'savename') {
         var name = (document.getElementById('authName').value || '').trim();
         DORM.auth.ensureProfile(name).then(route);
