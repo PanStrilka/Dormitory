@@ -72,6 +72,20 @@ html { scroll-behavior: smooth; }
 .sync-dot.error { background: #e74c3c; }
 .sync-dot.off { background: rgba(255,255,255,.35); }
 
+/* auth screens */
+body.auth-screen .bottom-nav { display: none; }
+.auth-wrap { max-width: 460px; margin: 0 auto; padding: 24px 16px; }
+.auth-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 24px 20px; text-align: center; }
+.auth-card.wide { text-align: left; }
+.auth-card h2 { margin: 6px 0 4px; font-size: 20px; }
+.auth-logo { font-size: 44px; line-height: 1; margin-bottom: 6px; }
+.auth-card .field { text-align: left; margin: 14px 0; }
+.auth-card .btn.big { width: 100%; padding: 14px; font-size: 16px; border-radius: 14px; margin-top: 4px; }
+.auth-card .btn.link { margin-top: 12px; }
+.auth-card h3 { font-size: 14px; margin: 14px 0 8px; }
+.auth-card .mt { margin-top: 18px; }
+
 /* bottom navigation (Duolingo-style) */
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
