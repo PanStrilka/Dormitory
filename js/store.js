@@ -26,7 +26,8 @@
         sync: null,        // { url, key } manual override; null = use baked-in default (config.js)
         syncDisabled: false, // true when a user explicitly turns sync off despite a default
         proof: 'off',      // photo proof for check-off: 'off' | 'weekly' (weekly+monthly) | 'all'
-        proofRetentionDays: 7 // proof photos are auto-deleted after this many days
+        proofRetentionDays: 7, // proof photos are auto-deleted after this many days
+        monthlyReward: 100 // symbolic reward (in currency) for the month's top contributor
       },
       members: [],            // { id, name, room: 'A'|'B', color }
       overrides: {},          // "2026-W36|KITCHEN" -> memberId (manual/swap assignment)

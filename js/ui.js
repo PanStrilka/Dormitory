@@ -497,22 +497,33 @@
 
     var rows = lb.map(function (r, i) {
       var mine = me && r.member.id === me;
+      var flame = r.streak > 0 ? ' <span class="streak" title="' + t('lb_streak') + '">🔥' + r.streak + '</span>' : '';
       return '<div class="lb-row' + (mine ? ' mine' : '') + '">' +
         '<span class="rank">' + (i + 1) + '</span>' + avatar(r.member, 30) +
         '<div class="lb-info"><div class="lb-name">' + esc(r.member.name) +
-        ' <span class="tier">' + r.tier.badge + ' ' + t(r.tier.id) + '</span></div>' +
+        ' <span class="tier">' + r.tier.badge + ' ' + t(r.tier.id) + '</span>' + flame + '</div>' +
         '<div class="muted sm">' + r.tokens + ' × ' + t('lb_tokens') +
         (r.tokens > 0 && mine ? ' <button class="btn ghost xs" data-act="token" data-id="' +
           r.member.id + '">' + t('lb_use_token') + '</button>' : '') + '</div></div>' +
         '<span class="lb-pts">' + r.points + ' <small>' + t('lb_points') + '</small></span></div>';
     }).join('');
 
+    // Hero of the month — the top points-earner this calendar month + reward.
+    var hero = DORM.points.monthlyHero(st);
+    var heroCard = hero ? '<section class="card hero-card"><div class="hero-row">' +
+      '<span class="hero-medal">🏅</span>' +
+      '<div class="hero-info"><div class="hero-title">' + t('lb_hero_title') + '</div>' +
+      '<div class="hero-name">' + avatar(hero.member, 26) + ' <b>' + esc(hero.member.name) + '</b></div>' +
+      '<div class="muted sm">' + hero.points + ' ' + t('lb_points') + ' · 🎁 ' +
+      esc(hero.reward) + ' ' + esc(hero.currency) + '</div></div></div>' +
+      '<p class="muted sm">' + t('lb_hero_hint') + '</p></section>' : '';
+
     var rules = '<section class="card"><h2>' + t('lb_rules_title') + '</h2><ul class="rules">' +
-      ['lb_rule_1', 'lb_rule_2', 'lb_rule_3'].map(function (k) {
+      ['lb_rule_1', 'lb_rule_2', 'lb_rule_3', 'lb_rule_monthly', 'lb_rule_shop', 'lb_rule_streak'].map(function (k) {
         return '<li>' + t(k) + '</li>';
       }).join('') + '</ul></section>';
 
-    return '<section class="card"><h2>' + t('lb_title') + '</h2>' + rows + '</section>' + rules;
+    return heroCard + '<section class="card"><h2>' + t('lb_title') + '</h2>' + rows + '</section>' + rules;
   }
 
   // ---------- PROFILE hub (points / overview / settings) ----------
@@ -780,6 +791,9 @@
       '<label class="field"><span>' + t('set_currency') + '</span>' +
       '<input type="text" data-act="currency" value="' + esc(st.settings.currency) +
       '" maxlength="4" style="max-width:120px"></label>' +
+      '<label class="field"><span>' + t('set_monthly_reward') + '</span>' +
+      '<input type="number" min="0" max="100000" data-act="monthlyReward" style="max-width:140px" value="' +
+      esc(st.settings.monthlyReward != null ? st.settings.monthlyReward : 100) + '"></label>' +
       '<label class="field"><span>' + t('set_language') + '</span>' +
       '<select data-act="lang"><option value="cs"' + (DORM.i18n.getLang() === 'cs' ? ' selected' : '') +
       '>Čeština</option><option value="en"' + (DORM.i18n.getLang() === 'en' ? ' selected' : '') +
@@ -1196,6 +1210,9 @@
         S.update(function (s) { s.settings.startDate = el.value; });
       } else if (el.getAttribute('data-act') === 'currency') {
         S.update(function (s) { s.settings.currency = el.value || 'CZK'; });
+      } else if (el.getAttribute('data-act') === 'monthlyReward') {
+        var rw = Math.max(0, Math.min(100000, parseInt(el.value, 10) || 0));
+        S.update(function (s) { s.settings.monthlyReward = rw; });
       } else if (el.getAttribute('data-act') === 'lang') {
         DORM.i18n.setLang(el.value);
         S.update(function (s) { s.settings.lang = el.value; });
