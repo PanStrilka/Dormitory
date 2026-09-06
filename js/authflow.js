@@ -11,7 +11,8 @@
   var mainEl, modalEl;
   var current = { cellId: null, role: null, profile: null };
   var mounted = false;
-  var pendingEmail = '';   // email awaiting its 6-digit code
+  var pendingEmail = '';   // remembers the last email typed on the login screen
+  var recovering = false;  // true while a password-recovery link is being handled
 
   var COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8', '#4db6ac', '#f06292', '#a1887f'];
 
@@ -31,13 +32,16 @@
     modalEl = document.getElementById('modal');
     screen('<div class="auth-card"><div class="auth-logo">🧽</div><p class="muted">…</p></div>');
     DORM.auth.init().then(function (session) {
-      DORM.auth.onChange(function (s) { route(); });
+      DORM.auth.onChange(function (s, evt) {
+        if (evt === 'PASSWORD_RECOVERY') { recovering = true; renderSetPassword(); return; }
+        if (!recovering) route();
+      });
       route();
     }).catch(function (e) {
       screen('<div class="auth-card"><div class="auth-logo">🧽</div>' +
         '<p class="err-msg">' + t('auth_err_init') + '</p>' +
         '<p class="muted sm">' + esc(e && e.message || '') + '</p>' +
-        '<button class="btn ghost" data-authact="localmode">' + t('auth_use_local') + '</button></div>');
+        '<button class="btn ghost" data-authact="refresh">' + t('auth_refresh') + '</button></div>');
     });
   }
 
@@ -58,8 +62,7 @@
       });
     }).catch(function (e) {
       screen('<div class="auth-card"><p class="err-msg">' + esc(e && e.message || 'error') + '</p>' +
-        '<button class="btn ghost" data-authact="signout">' + t('auth_signout') + '</button>' +
-        '<button class="btn link" data-authact="localmode">' + t('auth_use_local') + '</button></div>');
+        '<button class="btn ghost" data-authact="signout">' + t('auth_signout') + '</button></div>');
     });
   }
 
@@ -77,7 +80,19 @@
       '<button class="btn big" data-authact="pw-signin">' + t('auth_pw_signin') + '</button>' +
       '<button class="btn ghost" data-authact="pw-signup">' + t('auth_pw_signup') + '</button>' +
       '<div id="authMsg" class="muted sm center"></div>' +
-      '<button class="btn link" data-authact="localmode">' + t('auth_use_local') + '</button></div>');
+      '<button class="btn link" data-authact="pw-forgot">' + t('auth_pw_forgot') + '</button></div>');
+  }
+
+  // Shown when a password-recovery link is opened (also how the first admin,
+  // who never had a password, sets one).
+  function renderSetPassword() {
+    appMode(); document.body.classList.add('auth-screen');
+    mainEl.innerHTML = '<div class="auth-wrap"><div class="auth-card"><div class="auth-logo">🔑</div>' +
+      '<h2>' + t('auth_setpw_title') + '</h2>' +
+      '<label class="field"><span>' + t('auth_setpw_label') + '</span>' +
+      '<input type="password" id="authNewPw" placeholder="••••••" autocomplete="new-password"></label>' +
+      '<button class="btn big" data-authact="pw-setnew">' + t('auth_setpw_save') + '</button>' +
+      '<div id="authMsg" class="muted sm center"></div></div></div>';
   }
 
   function renderName(u) {
@@ -260,6 +275,22 @@
             msg('authMsg', t('auth_pw_confirm')); // admin should disable email confirmation
           }).catch(function () { msg('authMsg', t('auth_err')); });
         }
+      } else if (act === 'pw-forgot') {
+        var em = (document.getElementById('authEmail').value || '').trim();
+        if (!em) { msg('authMsg', t('auth_pw_need_email')); return; }
+        msg('authMsg', '…');
+        DORM.auth.resetPassword(em).then(function (r) {
+          msg('authMsg', (r && r.error) ? (r.error.message || t('auth_err')) : t('auth_pw_reset_sent'));
+        }).catch(function () { msg('authMsg', t('auth_err')); });
+      } else if (act === 'pw-setnew') {
+        var np = document.getElementById('authNewPw').value || '';
+        if (np.length < 6) { msg('authMsg', t('auth_pw_short')); return; }
+        msg('authMsg', '…');
+        DORM.auth.updatePassword(np).then(function (r) {
+          if (r && r.error) { msg('authMsg', r.error.message || t('auth_err')); return; }
+          recovering = false;
+          route();
+        }).catch(function () { msg('authMsg', t('auth_err')); });
       } else if (act === 'savename') {
         var name = (document.getElementById('authName').value || '').trim();
         DORM.auth.ensureProfile(name).then(route);

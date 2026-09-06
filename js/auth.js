@@ -65,7 +65,7 @@
 
   function onChange(cb) {
     if (!client) return;
-    client.auth.onAuthStateChange(function (_evt, session) { cb(session); });
+    client.auth.onAuthStateChange(function (evt, session) { cb(session, evt); });
   }
 
   function signIn(email) {
@@ -90,6 +90,16 @@
   }
   function signInPassword(email, password) {
     return client.auth.signInWithPassword({ email: email, password: password });
+  }
+  // Password reset / "set a password" for accounts that never had one (e.g. the
+  // first admin, created back in the magic-link era). Sends a recovery email;
+  // opening its link signs the user in with a PASSWORD_RECOVERY event, after
+  // which updatePassword() sets the new password.
+  function resetPassword(email) {
+    return client.auth.resetPasswordForEmail(email, { redirectTo: authRedirect() });
+  }
+  function updatePassword(password) {
+    return client.auth.updateUser({ password: password });
   }
   function signOut() { return client.auth.signOut(); }
   function user() {
@@ -218,6 +228,7 @@
     enabled: enabled, init: init, onChange: onChange,
     signIn: signIn, verifyOtp: verifyOtp,
     signUpPassword: signUpPassword, signInPassword: signInPassword,
+    resetPassword: resetPassword, updatePassword: updatePassword,
     signOut: signOut, user: user, me: me,
     ensureProfile: ensureProfile, myProfile: myProfile,
     myMemberships: myMemberships, listCells: listCells, requestJoin: requestJoin,

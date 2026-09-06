@@ -490,3 +490,7 @@ body.auth-screen .install-bar { bottom: calc(16px + env(safe-area-inset-bottom, 
 .hero-name { display: flex; align-items: center; gap: 6px; font-size: 16px; margin: 2px 0; }
 .lb-name .streak { font-size: 12px; font-weight: 800; color: #e0693b;
   background: color-mix(in srgb, #e0693b 14%, transparent); padding: 1px 6px; border-radius: 10px; margin-left: 4px; }
+
+/* Disable double-tap-to-zoom (keeps pinch-zoom + scrolling). */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+button, .btn, .tab, .seg, label.task, .chip { touch-action: manipulation; }
