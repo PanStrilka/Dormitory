@@ -21,7 +21,10 @@
     // Supabase project URL (public).
     url: 'https://kfgbdsnvatjlbytfnuad.supabase.co',
     // Publishable (anon) key — public by design, protected by RLS + join code.
-    key: 'sb_publishable_QArzgPEMgL0RndHKc-0Dmw_Omvys6Hj'
+    key: 'sb_publishable_QArzgPEMgL0RndHKc-0Dmw_Omvys6Hj',
+    // Accounts + multi-cell mode is now the default for everyone (real logins).
+    // A user can still fall back to the local honor-based app with ?auth=0.
+    authMode: true
   };
 
   /** The baked-in default sync config, or null if not configured. */
