@@ -115,10 +115,15 @@ Deno.serve(async () => {
   for (const sub of subs || []) {
     const roleList = dutyByName[sub.member_name];
     if (!roleList) continue;
+    // Friendly, Duolingo-style nudge (warm, first-name, a little cheer).
+    const name = (sub.member_name || "").trim();
+    const hi = lang === "en" ? (name ? "Hi " + name + "! " : "Hi! ")
+                             : (name ? "Ahoj " + name + "! " : "Ahoj! ");
+    const title = lang === "en" ? "🧽 Bulka needs you!" : "🧽 Bulka tě potřebuje!";
     const body = lang === "en"
-      ? "This week you're on duty: " + roleList.join(", ")
-      : "Tento týden máš službu: " + roleList.join(", ");
-    const payload = JSON.stringify({ title: "Bulka", body, tag: "duty", url: "./" });
+      ? hi + "This week it's your turn: " + roleList.join(", ") + ". You've got this! 💪"
+      : hi + "Tento týden máš službu: " + roleList.join(", ") + ". Dáš to! 💪";
+    const payload = JSON.stringify({ title, body, tag: "duty", url: "./" });
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },

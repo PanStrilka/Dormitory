@@ -363,8 +363,35 @@ table.rota .ra { text-align: right; width: 44px; }
   100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1) rotate(var(--r)); }
 }
 
+/* active tab: soft pill + a springy pop each time you switch to it */
+.bottom-nav .tab.active { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+@keyframes tabPop {
+  0%   { transform: translateY(-3px) scale(1.25); }
+  45%  { transform: translateY(-7px) scale(1.42); }
+  100% { transform: translateY(-3px) scale(1.25); }
+}
+.bottom-nav .tab.active .ti { animation: tabPop .42s cubic-bezier(.34,1.56,.64,1); }
+
+/* celebration toast — friendly "well done" banner on a 100% duty */
+.party-toast {
+  position: fixed; left: 50%; top: 16%; transform: translateX(-50%); z-index: 45;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff;
+  padding: 12px 22px; border-radius: 999px; font-weight: 800; font-size: 15px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.28); pointer-events: none; white-space: nowrap;
+  max-width: 88vw; text-align: center;
+  animation: partyToast 1.9s cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes partyToast {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(.8); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.04); }
+  22%  { transform: translateX(-50%) translateY(0) scale(1); }
+  78%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.96); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .main > .card, .main > .segmented, .badge.you, .confetti { animation: none !important; }
+  .main > .card, .main > .segmented, .badge.you, .confetti, .party-toast,
+  .bottom-nav .tab.active .ti { animation: none !important; }
   .bottom-nav .tab .ti, .btn, .chip, .segmented .seg { transition: none !important; }
 }
 @media (min-width: 620px) { .modal { bottom: auto; top: 50%; transform: translate(-50%,-50%); border-radius: 20px; } @keyframes up { from{opacity:.6} to{opacity:1} } }

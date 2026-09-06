@@ -14,6 +14,7 @@
   var profileSub = 'leaderboard'; // sub-view inside the Profile hub
   var viewDate = new Date();      // for roster navigation
   var modalEl, mainEl;
+  var navSig = '';                // last-rendered nav signature (avoids replaying the tab pop)
 
   // ---------- small helpers ----------
   function esc(s) {
@@ -123,6 +124,30 @@
     }
   }
 
+  // Light haptic feedback on supported phones (respects reduced-motion).
+  function haptic(pattern) {
+    if (prefersReducedMotion()) return;
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  }
+
+  // Friendly "well done!" banner that floats in and fades out.
+  function toast(msg) {
+    if (prefersReducedMotion() || !msg) return;
+    var fx = document.getElementById('fx');
+    if (!fx) return;
+    var el = document.createElement('div');
+    el.className = 'party-toast';
+    el.textContent = msg;
+    fx.appendChild(el);
+    setTimeout(function () { el.remove(); }, 1900);
+  }
+
+  // Pick one of the localized celebration lines at random.
+  function celebrateLine() {
+    var lines = String(t('celebrate_lines') || '').split('|');
+    return lines[Math.floor(Math.random() * lines.length)] || '';
+  }
+
   function roleName(id) {
     var rn = state().settings.roomNames || {};
     if (id === 'ROOM_A') return rn.A || t('role_ROOM_A');
@@ -175,6 +200,12 @@
       ['profile', t('tab_profile'), '👤']
     ];
     var expUnread = anyUnread();
+    // Only rebuild the nav when the active tab or the unread dot actually
+    // changes — otherwise every state change (e.g. ticking a task) would replay
+    // the active-tab pop animation.
+    var sig = currentTab + '|' + (expUnread ? '1' : '0');
+    if (sig === navSig) return;
+    navSig = sig;
     document.getElementById('nav').innerHTML = tabs.map(function (x) {
       var active = currentTab === x[0];
       var dot = (x[0] === 'expenses' && expUnread) ? '<span class="dot"></span>' : '';
@@ -1035,6 +1066,10 @@
           var done = comp ? tasks.filter(function (x) { return comp.items[x.id]; }).length : 0;
           if (tasks.length && done === tasks.length) {
             celebrate(rect.left + rect.width / 2, rect.top);
+            toast(celebrateLine());
+            haptic([14, 40, 22]); // celebratory buzz
+          } else {
+            haptic(10); // gentle tick on each check-off
           }
         }
       } else if (el.getAttribute('data-act') === 'm-name') {

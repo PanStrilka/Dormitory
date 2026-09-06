@@ -42,7 +42,9 @@
   function enable(memberName) {
     var st = DORM.store.get();
     var vapid = (st.settings.vapidPublicKey || '').trim();
-    var sync = st.settings.sync;
+    // Honor the baked-in default config (js/config.js) when no manual override.
+    var sync = st.settings.sync ||
+      (st.settings.syncDisabled ? null : (DORM.defaultSync && DORM.defaultSync()));
     if (!supported()) return Promise.reject(new Error('unsupported'));
     if (!vapid) return Promise.reject(new Error('no-vapid'));
     if (!sync || !sync.url || !sync.key) return Promise.reject(new Error('no-sync'));
