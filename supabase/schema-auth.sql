@@ -73,6 +73,10 @@ $$;
 create or replace function guard_superadmin() returns trigger
   language plpgsql security definer set search_path = public as $$
 begin
+  -- No auth context (SQL editor / service role) may set superadmin freely —
+  -- that's how you bootstrap the first admin. End-user requests always have
+  -- auth.uid(), so only they are guarded against self-promotion.
+  if auth.uid() is null then return new; end if;
   if tg_op = 'INSERT' then
     if new.is_superadmin and not is_superadmin() then new.is_superadmin := false; end if;
   else

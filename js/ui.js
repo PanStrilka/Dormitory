@@ -218,6 +218,8 @@
   function renderMePicker() {
     var box = document.getElementById('mePicker');
     if (!box) return;
+    // In auth mode "me" is the signed-in account — no impersonation picker.
+    if (DORM.auth && DORM.auth.enabled()) { box.innerHTML = ''; return; }
     var ms = verified();
     if (!ms.length) { box.innerHTML = ''; return; }
     box.innerHTML = '<select id="meSelect" title="I am"><option value="">👤 ?</option>' +
@@ -686,9 +688,26 @@
         '<button class="btn ghost sm" data-act="m-del" data-id="' + m.id + '">🗑</button></div>';
     }).join('');
 
-    // Admin panel: people waiting to be approved.
+    var authOn = !!(DORM.auth && DORM.auth.enabled());
+
+    // Account card (auth mode): cell, role, admin panel, sign out.
+    var accountCard = '';
+    if (authOn && DORM.authflow) {
+      var cur = DORM.authflow.current || {};
+      var isAdmin = DORM.authflow.isAdmin && DORM.authflow.isAdmin();
+      var cellName = (cur.membership && cur.membership.cells && cur.membership.cells.name) ||
+        (state().settings.roomNames ? '' : '');
+      accountCard = '<section class="card"><h2>👤 ' + t('auth_account') + '</h2>' +
+        '<p class="muted sm">' + (isAdmin ? t('auth_role_admin') : t('auth_role_member')) + '</p>' +
+        '<div class="row gap">' +
+        (isAdmin ? '<button class="btn" data-act="auth-admin">🛠️ ' + t('auth_open_admin') + '</button>' : '') +
+        '<button class="btn ghost" data-act="auth-signout">' + t('auth_signout') + '</button>' +
+        '</div></section>';
+    }
+
+    // Old honor-based pending list (only when NOT in auth mode).
     var pendingCard = '';
-    if (ps.length) {
+    if (ps.length && !authOn) {
       pendingCard = '<section class="card"><h2>' + t('verify_pending_title') + ' (' + ps.length +
         ')</h2><p class="muted sm">' + t('pending_hint') + '</p>' +
         ps.map(function (m) {
@@ -704,7 +723,8 @@
       (st.settings.syncDisabled ? {} : (DORM.defaultSync() || {}));
     var syncActive = !!(st.settings.sync ||
       (!st.settings.syncDisabled && DORM.defaultSync()));
-    return '<section class="card"><h2>' + t('set_members') + '</h2>' + rows +
+    return accountCard + (authOn ? '' : (
+      '<section class="card"><h2>' + t('set_members') + '</h2>' + rows +
       '<div class="row gap">' +
       (vs.length < 8
         ? '<button class="btn" data-act="m-add">➕ ' + t('set_add_member') + '</button>'
@@ -719,7 +739,7 @@
       '<input type="text" data-act="joinCode" value="' + esc(st.settings.joinCode || '') +
       '" placeholder="—" style="max-width:220px"></label>' +
       '<p class="muted sm">' + t('join_code_hint') + '</p>' +
-      '<button class="btn ghost" data-act="join-open">👋 ' + t('join_button') + '</button></section>' +
+      '<button class="btn ghost" data-act="join-open">👋 ' + t('join_button') + '</button></section>')) +
 
       '<section class="card"><h2>' + t('settings_title') + '</h2>' +
       '<div class="field"><span>' + t('set_rooms') + '</span><div class="row gap">' +
@@ -1164,6 +1184,10 @@
   var actions = {
     'goto-settings': function () { currentTab = 'profile'; profileSub = 'settings'; render(); },
     'psub': function (el) { profileSub = el.getAttribute('data-sub'); render(); },
+    'auth-admin': function () { if (DORM.authflow) DORM.authflow.renderAdmin(); },
+    'auth-signout': function () {
+      if (DORM.auth) DORM.auth.signOut().then(function () { location.reload(); });
+    },
     'modal-close': function () { closeModal(); },
     'tour-next': function () { openTour(tourStep + 1); },
     'tour-back': function () { openTour(tourStep - 1); },

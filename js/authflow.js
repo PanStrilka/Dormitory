@@ -283,5 +283,12 @@
     });
   }
 
-  DORM.authflow = { start: function () { bindEvents(); start(); }, route: route, enterCell: enterCell, renderAdmin: renderAdmin };
+  DORM.authflow = {
+    start: function () { bindEvents(); start(); },
+    route: route, enterCell: enterCell, renderAdmin: renderAdmin,
+    current: current,
+    isAdmin: function () {
+      return current.role === 'cell_admin' || (current.profile && current.profile.is_superadmin);
+    }
+  };
 })(window.DORM = window.DORM || {});
