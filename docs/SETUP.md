@@ -46,7 +46,17 @@
 
 Коли база готова:
 
-1. **Storage** (ліворуч) → **New bucket** → назва `receipts`, залиш **Private**.
+1. **Storage** (ліворуч) → **New bucket** → назва **точно `receipts`** (маленькими,
+   назву потім не змінити!), Public **вимкнено** (Private) → **Create**.
+1b. Оскільки в Storage свій окремий RLS, дай anon-ключу доступ до цього бакета —
+   **SQL Editor → Run** (це вже є в кінці `supabase/schema.sql`, тож якщо
+   виконаєш весь файл ще раз після створення бакета — політики додадуться самі):
+   ```sql
+   create policy "receipts anon insert" on storage.objects
+     for insert to anon with check (bucket_id = 'receipts');
+   create policy "receipts anon select" on storage.objects
+     for select to anon using (bucket_id = 'receipts');
+   ```
 2. Заведи ключ ШІ (Claude API) на <https://console.anthropic.com> → **API Keys**
    → **Create Key**. Це **секрет** — його **не надсилай мені**.
 3. **Edge Functions → Secrets** → додай:

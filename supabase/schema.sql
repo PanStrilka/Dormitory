@@ -132,6 +132,26 @@ begin
 end $$;
 
 -- ----------------------------------------------------------------------------
+-- Storage policies: allow the anon key to upload to / read from the 'receipts'
+-- bucket. Storage has its OWN row-level security (on storage.objects), separate
+-- from the table policies above, so the anon client can't upload without these.
+-- Create the bucket first (Storage -> New bucket -> name "receipts", Private),
+-- then run this. Safe to re-run.
+-- ----------------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.tables
+             where table_schema = 'storage' and table_name = 'objects') then
+    drop policy if exists "receipts anon insert" on storage.objects;
+    drop policy if exists "receipts anon select" on storage.objects;
+    create policy "receipts anon insert" on storage.objects
+      for insert to anon with check (bucket_id = 'receipts');
+    create policy "receipts anon select" on storage.objects
+      for select to anon using (bucket_id = 'receipts');
+  end if;
+end $$;
+
+-- ----------------------------------------------------------------------------
 -- TTL cleanup of expired receipt rows. (Deleting the Storage FILE for each is
 -- done by the scheduled Edge Function in docs/SETUP.md — pg_cron only removes
 -- the rows here. If pg_cron is unavailable on your plan, the Edge Function
