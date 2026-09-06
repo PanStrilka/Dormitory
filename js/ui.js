@@ -298,10 +298,19 @@
       return '<div class="freq"><div class="freq-h">' + t('freq_' + f) + '</div>' +
         groups[f].map(function (x) {
           var on = !!comp.items[x.id];
+          var pf = comp.proofs && comp.proofs[x.id];
+          var mark = '';
+          if (pf && pf.thumb) {
+            mark = '<img class="proof-thumb' + (pf.spoof ? ' bad' : (pf.verified ? ' ok' : '')) +
+              '" src="' + pf.thumb + '" alt="" title="' +
+              (pf.spoof ? t('proof_flagged') : pf.verified ? t('proof_verified') : t('proof_manual')) + '">';
+          } else if (isMine && proofNeeded(x.freq)) {
+            mark = '<span class="proof-need" title="' + t('proof_need_hint') + '">📷</span>';
+          }
           return '<label class="task' + (on ? ' on' : '') + '">' +
             '<input type="checkbox" data-act="toggle" data-wk="' + wk + '" data-role="' +
             slot.roleId + '" data-task="' + x.id + '"' + (on ? ' checked' : '') + '>' +
-            '<span>' + esc(x[DORM.i18n.getLang()] || x.cs) + '</span></label>';
+            '<span>' + esc(x[DORM.i18n.getLang()] || x.cs) + '</span>' + mark + '</label>';
         }).join('') + '</div>';
     }).join('');
 
@@ -757,6 +766,17 @@
       '>Čeština</option><option value="en"' + (DORM.i18n.getLang() === 'en' ? ' selected' : '') +
       '>English</option></select></label></section>' +
 
+      '<section class="card"><h2>📷 ' + t('proof_title') + '</h2>' +
+      '<p class="muted sm">' + t('proof_desc') + '</p>' +
+      '<label class="field"><span>' + t('proof_mode') + '</span>' +
+      '<select data-act="proofMode">' +
+      '<option value="off"' + (proofMode() === 'off' ? ' selected' : '') + '>' + t('proof_off') + '</option>' +
+      '<option value="weekly"' + (proofMode() === 'weekly' ? ' selected' : '') + '>' + t('proof_weekly') + '</option>' +
+      '<option value="all"' + (proofMode() === 'all' ? ' selected' : '') + '>' + t('proof_all') + '</option>' +
+      '</select></label>' +
+      '<p class="muted sm">' + (DORM.verifytask && DORM.verifytask.enabled()
+        ? '✅ ' + t('proof_ai_on') : '⚠️ ' + t('proof_ai_off')) + '</p></section>' +
+
       '<section class="card"><h2>' + t('set_notify') + '</h2>' +
       '<p class="muted sm">' + t('notify_hint') + '</p>' +
       '<label class="field"><span>' + t('notify_vapid') + '</span>' +
@@ -1110,20 +1130,16 @@
         // Capture the checkbox position before the re-render detaches it.
         var rect = el.getBoundingClientRect();
         var wasChecked = el.checked;
-        toggleTask(wk, role, task, el.checked);
-        if (wasChecked) {
-          var isMonthly = DORM.store.isMonthlyWeek(weekDateFromKey(wk));
-          var tasks = DORM.duties.tasksForRole(role, isMonthly);
-          var comp = S.get().completions[wk + '|' + role];
-          var done = comp ? tasks.filter(function (x) { return comp.items[x.id]; }).length : 0;
-          if (tasks.length && done === tasks.length) {
-            celebrate(rect.left + rect.width / 2, rect.top);
-            toast(celebrateLine());
-            haptic([14, 40, 22]); // celebratory buzz
-          } else {
-            haptic(10); // gentle tick on each check-off
-          }
+        // Turning ON a proof-required task: don't tick yet — take a photo first.
+        var freq = taskFreq(role, task, wk);
+        if (wasChecked && proofNeeded(freq) && DORM.camera && DORM.camera.supported()) {
+          el.checked = false; // revert; proofFlow marks it done only if the photo passes
+          proofFlow(wk, role, task, rect);
+          return;
         }
+        toggleTask(wk, role, task, el.checked);
+        if (!wasChecked) clearProof(wk, role, task); // unticking drops any stored proof
+        if (wasChecked) afterCheck(wk, role, rect);
       } else if (el.getAttribute('data-act') === 'm-name') {
         var id = el.getAttribute('data-id');
         S.update(function (s) { var m = s.members.filter(function (x) { return x.id === id; })[0]; if (m) m.name = el.value; });
@@ -1150,6 +1166,8 @@
       } else if (el.getAttribute('data-act') === 'lang') {
         DORM.i18n.setLang(el.value);
         S.update(function (s) { s.settings.lang = el.value; });
+      } else if (el.getAttribute('data-act') === 'proofMode') {
+        S.update(function (s) { s.settings.proof = el.value || 'off'; });
       }
     });
 
@@ -1159,6 +1177,129 @@
       var act = el.getAttribute('data-act');
       var handler = actions[act];
       if (handler) { handler(el, e); }
+    });
+  }
+
+  // Celebrate / buzz after a successful check-off; fire confetti on 100%.
+  function afterCheck(wk, role, rect) {
+    var isMonthly = DORM.store.isMonthlyWeek(weekDateFromKey(wk));
+    var tasks = DORM.duties.tasksForRole(role, isMonthly);
+    var comp = S.get().completions[wk + '|' + role];
+    var done = comp ? tasks.filter(function (x) { return comp.items[x.id]; }).length : 0;
+    if (tasks.length && done === tasks.length) {
+      if (rect) celebrate(rect.left + rect.width / 2, rect.top);
+      toast(celebrateLine());
+      haptic([14, 40, 22]);
+    } else {
+      haptic(10);
+    }
+  }
+
+  // Which frequency is this task? (needed to decide whether it wants a photo)
+  function taskFreq(role, taskId, wk) {
+    var isMonthly = DORM.store.isMonthlyWeek(weekDateFromKey(wk));
+    var tasks = DORM.duties.tasksForRole(role, isMonthly);
+    var found = tasks.filter(function (x) { return x.id === taskId; })[0];
+    return found ? found.freq : 'daily';
+  }
+
+  function proofMode() { return (state().settings.proof) || 'off'; }
+
+  // Is a proof photo required for a task of this frequency, per settings?
+  function proofNeeded(freq) {
+    var mode = proofMode();
+    if (mode === 'all') return true;
+    if (mode === 'weekly') return freq !== 'daily'; // weekly + monthly
+    return false;
+  }
+
+  // Shrink a captured photo to a tiny JPEG kept locally as the visible record.
+  function makeThumb(dataUrl, edge) {
+    edge = edge || 72;
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, edge / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', 0.6)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+
+  function storeProof(wk, role, task, proof, markDone) {
+    S.update(function (s) {
+      var k = wk + '|' + role;
+      var c = s.completions[k] || { items: {}, by: null };
+      if (!c.proofs) c.proofs = {};
+      c.proofs[task] = proof;
+      if (markDone) {
+        c.items[task] = true;
+        var a = DORM.rotation.assignee(s, role, weekDateFromKey(wk));
+        c.by = a ? a.id : null;
+        c.ts = Date.now();
+      }
+      s.completions[k] = c;
+    });
+  }
+
+  function clearProof(wk, role, task) {
+    S.update(function (s) {
+      var c = s.completions[wk + '|' + role];
+      if (c && c.proofs) { delete c.proofs[task]; }
+    });
+  }
+
+  // The photo-proof flow: capture in-app -> AI verify (done + anti-spoof) ->
+  // only mark the task done if it passes. Degrades gracefully at every step.
+  function proofFlow(wk, role, task, rect) {
+    var s0 = S.get();
+    var assignee0 = DORM.rotation.assignee(s0, role, weekDateFromKey(wk));
+    if (!assignee0 || assignee0.id !== s0.settings.me) return; // only the on-duty person
+    var isMonthly = DORM.store.isMonthlyWeek(weekDateFromKey(wk));
+    var tObj = DORM.duties.tasksForRole(role, isMonthly).filter(function (x) { return x.id === task; })[0];
+    var label = tObj ? (tObj[DORM.i18n.getLang()] || tObj.cs) : '';
+    var zone = tObj ? tObj.zone : '';
+
+    DORM.camera.capture({ title: t('proof_camera_title'), hint: label }).then(function (res) {
+      toast(t('proof_checking'));
+      return makeThumb(res.dataUrl).then(function (thumb) {
+        return DORM.verifytask.verify({ dataUrl: res.dataUrl, task: label, zone: zone })
+          .then(function (v) { return { v: v, thumb: thumb }; });
+      });
+    }).then(function (out) {
+      var v = out.v, thumb = out.thumb, now = Date.now();
+      if (v.ok && v.spoof) {
+        // Anti-cheating: looks like a photo of a screen — record it, don't credit.
+        storeProof(wk, role, task, { thumb: thumb, verified: false, spoof: true, reason: v.reason, ts: now }, false);
+        toast('🚫 ' + (v.reason || t('proof_spoof')));
+        haptic([30, 40, 30]);
+      } else if (v.ok && !v.skipped && !v.done) {
+        storeProof(wk, role, task, { thumb: thumb, verified: false, spoof: false, reason: v.reason, ts: now }, false);
+        toast('🤔 ' + (v.reason || t('proof_notdone')));
+        haptic(20);
+      } else {
+        // Passed (done), skipped (no AI backend) or a soft error -> accept as proof.
+        var verified = !!(v.ok && v.done && !v.skipped);
+        storeProof(wk, role, task, {
+          thumb: thumb, verified: verified, spoof: false,
+          reason: v.reason || '', confidence: v.confidence, manual: !verified, ts: now
+        }, true);
+        if (verified) toast('✅ ' + (v.reason || t('proof_ok')));
+        else if (v.skipped) toast('📷 ' + t('proof_saved_nobackend'));
+        else toast('📷 ' + t('proof_saved'));
+        afterCheck(wk, role, rect);
+      }
+    }).catch(function (err) {
+      var m = err && err.message;
+      if (m === 'no-camera') { // device has no camera at all -> plain check
+        toggleTask(wk, role, task, true); afterCheck(wk, role, rect);
+      } else if (m === 'denied') {
+        toast('📷 ' + t('proof_denied'));
+      } // 'cancelled' -> silently leave unchecked
     });
   }
 
