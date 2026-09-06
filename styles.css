@@ -463,3 +463,19 @@ body.cam-open { overflow: hidden; }
 .cam-review.show { display: flex; }
 .cam-review .btn { flex: 1; }
 .cam-retake { background: #ffffff22; color: #fff; border-color: #ffffff44; }
+
+/* ---- PWA install banner ---- */
+.install-bar { position: fixed; left: 12px; right: 12px; bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  z-index: 40; margin: 0 auto; max-width: 560px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18); animation: ibup .3s ease both; }
+.install-bar .ib-ic { font-size: 20px; flex: none; }
+.install-bar .ib-txt { flex: 1; font-size: 13px; line-height: 1.35; min-width: 0; }
+.install-bar .btn.sm { flex: none; }
+.install-bar .ib-x { flex: none; border: 0; background: transparent; color: var(--muted);
+  font-size: 15px; cursor: pointer; padding: 4px 6px; line-height: 1; }
+@keyframes ibup { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+body.auth-screen .install-bar { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+@media (prefers-reduced-motion: reduce) { .install-bar { animation: none; } }

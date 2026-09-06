@@ -800,6 +800,13 @@
       '<p class="muted sm">' + (DORM.verifytask && DORM.verifytask.enabled()
         ? '✅ ' + t('proof_ai_on') : '⚠️ ' + t('proof_ai_off')) + '</p></section>' +
 
+      '<section class="card"><h2>' + t('install_title') + '</h2>' +
+      (DORM.install && DORM.install.isStandalone()
+        ? '<p class="muted sm">' + t('install_done') + '</p>'
+        : '<p class="muted sm">' + t('install_prompt') + '</p>' +
+          '<button class="btn" data-act="install-app">' + t('install_action') + '</button>') +
+      '</section>' +
+
       '<section class="card"><h2>' + t('set_notify') + '</h2>' +
       '<p class="muted sm">' + t('notify_hint') + '</p>' +
       '<label class="field"><span>' + t('notify_vapid') + '</span>' +
@@ -1354,6 +1361,11 @@
 
   var actions = {
     'goto-settings': function () { currentTab = 'profile'; profileSub = 'settings'; render(); },
+    'install-app': function () {
+      if (!DORM.install) return;
+      var r = DORM.install.show(true); // force: show even if previously dismissed
+      if (r === 'installed') toast(t('install_done'));
+    },
     'psub': function (el) { profileSub = el.getAttribute('data-sub'); render(); },
     'auth-admin': function () { if (DORM.authflow) DORM.authflow.renderAdmin(); },
     'auth-signout': function () {
