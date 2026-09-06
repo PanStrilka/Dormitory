@@ -479,3 +479,14 @@ body.cam-open { overflow: hidden; }
 @keyframes ibup { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 body.auth-screen .install-bar { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: reduce) { .install-bar { animation: none; } }
+
+/* ---- gamification: hero of the month + streaks ---- */
+.hero-card { background: linear-gradient(135deg,
+  color-mix(in srgb, var(--accent) 20%, var(--card)), var(--card)); border-color: var(--accent); }
+.hero-row { display: flex; align-items: center; gap: 12px; }
+.hero-medal { font-size: 34px; flex: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.2)); }
+.hero-info { min-width: 0; }
+.hero-title { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; }
+.hero-name { display: flex; align-items: center; gap: 6px; font-size: 16px; margin: 2px 0; }
+.lb-name .streak { font-size: 12px; font-weight: 800; color: #e0693b;
+  background: color-mix(in srgb, #e0693b 14%, transparent); padding: 1px 6px; border-radius: 10px; margin-left: 4px; }
