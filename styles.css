@@ -143,6 +143,21 @@ html { scroll-behavior: smooth; }
 .badge.month { background: color-mix(in srgb, var(--accent) 22%, transparent); color: #8a5a00; margin-top: 10px; }
 .badge.you { background: var(--accent); color: #3a2600; margin-left: 6px; }
 
+/* section heading + today focus */
+.section-h { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; margin: 4px 2px -2px; }
+.center { text-align: center; }
+.celebrate-card { text-align: center; }
+.celebrate-card .big { font-size: 17px; font-weight: 700; margin: 6px 0; }
+.compact-duty { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.compact-duty .role-ic { font-size: 22px; }
+.compact-duty .cd-main { flex: 1; min-width: 0; }
+.compact-duty .cd-role { font-weight: 700; font-size: 14px; }
+.compact-duty .who { gap: 6px; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.compact-duty .cd-prog { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.compact-duty .mini-bar { width: 64px; height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.compact-duty .mini-bar span { display: block; height: 100%; background: var(--brand); border-radius: 999px; transition: width .4s; }
+.compact-duty .pct2 { font-size: 11px; color: var(--muted); font-weight: 700; }
+
 /* duty cards */
 .duty.mine { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent), var(--shadow); }
 .duty .top { margin-bottom: 10px; gap: 8px; }

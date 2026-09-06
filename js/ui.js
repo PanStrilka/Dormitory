@@ -231,19 +231,51 @@
   function renderToday() {
     var st = state();
     if (!verified().length) return emptyHint();
-    var roster = DORM.rotation.rosterForWeek(st, viewDateToday());
-    var monthly = DORM.store.isMonthlyWeek(viewDateToday());
-    var wk = DORM.store.isoWeekKey(viewDateToday());
+    var d = viewDateToday();
+    var roster = DORM.rotation.rosterForWeek(st, d);
+    var monthly = DORM.store.isMonthlyWeek(d);
+    var wk = DORM.store.isoWeekKey(d);
+    var me = st.settings.me;
 
     var html = '<section class="card head-card"><div class="row between">' +
       '<div><div class="muted">' + t('today_title') + '</div>' +
       '<h2>' + t('week_label') + ' ' + esc(wk.split('-W')[1]) + ' · ' +
-      esc(DORM.store.weekRange(viewDateToday())) + '</h2></div></div>' +
+      esc(DORM.store.weekRange(d)) + '</h2></div></div>' +
       (monthly ? '<div class="badge month">🧽 ' + t('monthly_week_badge') + '</div>' : '') +
       '</section>';
 
-    html += roster.map(function (slot) { return dutyCard(slot, wk); }).join('');
+    var mine = roster.filter(function (s) { return s.member && s.member.id === me; });
+    var others = roster.filter(function (s) { return !(s.member && s.member.id === me); });
+
+    if (!me) {
+      html += '<section class="card"><p class="muted big">👤 ' + t('today_pick_me') + '</p></section>';
+    } else if (mine.length) {
+      html += '<div class="section-h">' + t('today_your_duty') + '</div>';
+      html += mine.map(function (slot) { return dutyCard(slot, wk, true); }).join('');
+    } else {
+      html += '<section class="card celebrate-card"><p class="big">' + t('today_no_duty') + '</p></section>';
+    }
+
+    // Everyone else's duties — read-only (only the person on duty can tick).
+    html += '<div class="section-h">' + t('today_others') + '</div>';
+    html += others.map(function (slot) { return compactDutyRow(slot, wk); }).join('');
+    html += '<p class="muted sm center">' + t('today_readonly_hint') + '</p>';
     return html;
+  }
+
+  function compactDutyRow(slot, wk) {
+    var st = state();
+    var tasks = DORM.duties.tasksForRole(slot.roleId, slot.isMonthlyWeek);
+    var comp = st.completions[wk + '|' + slot.roleId] || { items: {} };
+    var done = tasks.filter(function (x) { return comp.items[x.id]; }).length;
+    var pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+    return '<section class="card compact-duty">' +
+      '<span class="role-ic">' + slot.icon + '</span>' +
+      '<div class="cd-main"><div class="cd-role">' + esc(roleName(slot.roleId)) + '</div>' +
+      '<div class="row who">' + avatar(slot.member, 22) +
+      '<span>' + (slot.member ? esc(slot.member.name) : t('nobody')) + '</span></div></div>' +
+      '<div class="cd-prog"><div class="mini-bar"><span style="width:' + pct + '%"></span></div>' +
+      '<span class="pct2">' + done + '/' + tasks.length + '</span></div></section>';
   }
 
   function viewDateToday() { return new Date(); }
@@ -1111,6 +1143,10 @@
   }
 
   function toggleTask(wk, role, task, on) {
+    var s0 = S.get();
+    // Only the person on duty for this role/week may tick its tasks.
+    var assignee0 = DORM.rotation.assignee(s0, role, weekDateFromKey(wk));
+    if (!assignee0 || assignee0.id !== s0.settings.me) return;
     S.update(function (s) {
       var k = wk + '|' + role;
       var c = s.completions[k] || { items: {}, by: null };
