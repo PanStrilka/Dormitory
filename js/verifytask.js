@@ -20,7 +20,11 @@
   'use strict';
 
   function cfg() {
-    var s = DORM.store.get().settings.sync;
+    var st = DORM.store.get().settings;
+    // Use the manual override if set, otherwise the baked-in default (config.js)
+    // — the same resolution the sync layer uses, so the AI backend is detected
+    // even when nobody pasted a URL/key by hand.
+    var s = st.sync || (st.syncDisabled ? null : (DORM.defaultSync && DORM.defaultSync()));
     return (s && s.url && s.key) ? { url: s.url.replace(/\/$/, ''), key: s.key } : null;
   }
 
