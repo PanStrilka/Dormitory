@@ -187,6 +187,7 @@
     return client.from('memberships')
       .select('id, user_id, room, role, status, display_name, cell_id')
       .eq('cell_id', cellId)
+      .order('user_id') // stable order across devices (the rota picks by position)
       .then(function (r) {
         if (r.error) { console.error('cellMembers', r.error.message); return []; }
         return r.data || [];
