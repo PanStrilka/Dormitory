@@ -176,19 +176,24 @@
     });
     sync.enable();
 
-    // Populate the app's member list from this cell's verified accounts.
+    // Populate the app's member list from this cell's verified accounts — the
+    // ONE shared roster everyone's rotation is computed from. (Requires the RLS
+    // policy that lets a verified member see the whole cell; see schema-auth.sql
+    // p_mem_sel.) Guard: never overwrite a good roster with an empty fetch, so a
+    // transient error can't make you the only member (and thus "always on duty").
     DORM.auth.cellMembers(cellId).then(function (list) {
       var verified = list.filter(function (x) { return x.status === 'verified'; });
       DORM.store.update(function (st) {
-        st.members = verified.map(function (x, i) {
-          var name = x.display_name || (x.profiles && x.profiles.display_name) || '—';
-          return { id: x.user_id, name: name, room: x.room || 'A',
-            color: COLORS[i % COLORS.length], status: 'verified' };
-        });
-        // "me" = my account
-        DORM.auth.me().then(function (u) {
-          if (u) { DORM.store.update(function (s2) { s2.settings.me = u.id; }); }
-        });
+        if (verified.length) {
+          st.members = verified.map(function (x, i) {
+            return { id: x.user_id, name: x.display_name || '—', room: x.room || 'A',
+              color: COLORS[i % COLORS.length], status: 'verified' };
+          });
+        }
+      });
+      // "me" = my account
+      DORM.auth.me().then(function (u) {
+        if (u) { DORM.store.update(function (s2) { s2.settings.me = u.id; }); }
       });
       showAdminButton();
       DORM.store.pruneProofs();

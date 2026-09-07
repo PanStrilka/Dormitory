@@ -115,11 +115,13 @@ create policy p_cell_upd on cells for update to authenticated using (is_cell_adm
 drop policy if exists p_cell_del on cells;
 create policy p_cell_del on cells for delete to authenticated using (is_superadmin());
 
--- memberships: you see your own + (admins see their cell's); you may request
--- to join (own row, pending, member); admins approve/edit/remove.
+-- memberships: every VERIFIED member of a cell can see that cell's roster
+-- (so the whole flat shares one duty schedule — not just their own row), plus
+-- you always see your own row. You may request to join (own row, pending,
+-- member); admins approve/edit/remove.
 drop policy if exists p_mem_sel on memberships;
 create policy p_mem_sel on memberships for select to authenticated
-  using (user_id = auth.uid() or is_cell_admin(cell_id));
+  using (user_id = auth.uid() or is_verified_member(cell_id));
 drop policy if exists p_mem_ins on memberships;
 create policy p_mem_ins on memberships for insert to authenticated
   with check (user_id = auth.uid() and status = 'pending' and role = 'member');
