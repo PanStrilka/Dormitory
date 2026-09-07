@@ -304,6 +304,23 @@
   // ---- actions ----
   function msg(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
 
+  // Re-read the cell's verified accounts (admin has the full view) and push the
+  // refreshed roster into the shared state, so approving/removing/moving someone
+  // updates everyone's schedule live — without waiting for anyone to reload.
+  function refreshRoster() {
+    if (!current.cellId) return Promise.resolve();
+    return DORM.auth.cellMembers(current.cellId).then(function (list) {
+      var verified = list.filter(function (x) { return x.status === 'verified'; });
+      DORM.store.update(function (st) {
+        st.members = verified.map(function (x, i) {
+          return { id: x.user_id, name: x.display_name || '—', room: x.room || 'A',
+            color: COLORS[i % COLORS.length], status: 'verified' };
+        });
+      });
+    }).catch(function () {});
+  }
+  function afterAdminChange() { return refreshRoster().then(renderAdmin, renderAdmin); }
+
   function bindEvents() {
     document.body.addEventListener('click', function (e) {
       var el = e.target.closest('[data-authact]');
@@ -376,14 +393,14 @@
       } else if (act === 'admin-close') {
         appMode(); DORM.ui.render();
       } else if (act === 'approve') {
-        DORM.auth.setMembership(el.getAttribute('data-id'), { status: 'verified' }).then(renderAdmin);
+        DORM.auth.setMembership(el.getAttribute('data-id'), { status: 'verified' }).then(afterAdminChange);
       } else if (act === 'reject') {
-        DORM.auth.setMembership(el.getAttribute('data-id'), { status: 'rejected' }).then(renderAdmin);
+        DORM.auth.setMembership(el.getAttribute('data-id'), { status: 'rejected' }).then(afterAdminChange);
       } else if (act === 'toggleadmin') {
         var role = el.getAttribute('data-role') === 'cell_admin' ? 'member' : 'cell_admin';
-        DORM.auth.setMembership(el.getAttribute('data-id'), { role: role }).then(renderAdmin);
+        DORM.auth.setMembership(el.getAttribute('data-id'), { role: role }).then(afterAdminChange);
       } else if (act === 'removemember') {
-        DORM.auth.removeMembership(el.getAttribute('data-id')).then(renderAdmin);
+        DORM.auth.removeMembership(el.getAttribute('data-id')).then(afterAdminChange);
       } else if (act === 'createcell') {
         var cn = (document.getElementById('newCellName').value || '').trim();
         if (!cn) return;
@@ -407,9 +424,9 @@
       if (!el) return;
       var id = el.getAttribute('data-id');
       if (el.getAttribute('data-authact') === 'room') {
-        DORM.auth.setMembership(id, { room: el.value });
-      } else { // move to another buňka, then refresh the panel
-        DORM.auth.setMembership(id, { cell_id: el.value }).then(renderAdmin);
+        DORM.auth.setMembership(id, { room: el.value }).then(refreshRoster);
+      } else { // move to another buňka, then refresh the roster + panel
+        DORM.auth.setMembership(id, { cell_id: el.value }).then(afterAdminChange);
       }
     });
   }

@@ -6,7 +6,7 @@
  * requests (e.g. Supabase) always go to the network. Bump CACHE when files
  * change so old assets are cleaned up.
  */
-var CACHE = 'bulka-v29';
+var CACHE = 'bulka-v30';
 var SHELL = [
   './',
   './index.html',
@@ -93,6 +93,31 @@ self.addEventListener('fetch', function (e) {
   var url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // let Supabase etc. hit network
 
+  // Network-first for the app itself (HTML + JS + CSS) so a new deploy applies
+  // on the FIRST reload when online — no more "reload twice to get the fix".
+  // Falls back to cache when offline. Other assets (icons) stay cache-first.
+  var isAppCode = req.mode === 'navigate' ||
+    /\.(?:js|css|webmanifest|html)(?:$|\?)/.test(url.pathname) || url.pathname === '/' ||
+    url.pathname.slice(-1) === '/';
+
+  if (isAppCode) {
+    e.respondWith(
+      fetch(req).then(function (res) {
+        if (res && res.status === 200) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match(req).then(function (cached) {
+          return cached || caches.match('./index.html');
+        });
+      })
+    );
+    return;
+  }
+
+  // Cache-first + background refresh for everything else.
   e.respondWith(
     caches.open(CACHE).then(function (cache) {
       return cache.match(req).then(function (cached) {
