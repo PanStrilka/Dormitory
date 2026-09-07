@@ -181,10 +181,16 @@
   }
 
   function cellMembers(cellId) {
+    // Note: no profiles() embed — there's no FK memberships->profiles (both point
+    // at auth.users), so embedding errors out and returns nothing. The name is
+    // already stored on the membership row (display_name) at join time.
     return client.from('memberships')
-      .select('id, user_id, room, role, status, display_name, profiles(display_name)')
+      .select('id, user_id, room, role, status, display_name')
       .eq('cell_id', cellId)
-      .then(function (r) { return r.data || []; });
+      .then(function (r) {
+        if (r.error) { console.error('cellMembers', r.error.message); return []; }
+        return r.data || [];
+      });
   }
 
   function setMembership(id, patch) {
