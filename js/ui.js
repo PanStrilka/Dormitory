@@ -1530,6 +1530,18 @@
       if (!(text || '').trim()) return;
       S.update(function (s) { DORM.comments.add(s, expenseId, s.settings.me, text); });
       markSeen(expenseId);          // my own message counts as read
+      // Push the rest of the flat (not me) about the new comment.
+      var st2 = S.get();
+      var actor = member(st2.settings.me) ? member(st2.settings.me).name : '';
+      var exp = (st2.expenses || []).filter(function (e) { return e.id === expenseId; })[0];
+      if (DORM.push && DORM.push.notifyActivity) {
+        DORM.push.notifyActivity({
+          title: t('notif_comment_title'),
+          body: (actor ? actor + ' ' : '') + t('notif_comment_body') +
+            (exp && exp.desc ? ' «' + exp.desc + '»' : '') + ': ' + text.trim().slice(0, 80),
+          excludeName: actor, tag: 'comment'
+        });
+      }
       commentsModal(expenseId);     // refresh the thread with the new comment
     },
     'comment-del': function (el) {
@@ -1565,9 +1577,21 @@
       var id = el.getAttribute('data-id');
       var buyer = document.getElementById('shBuyer').value;
       var amount = parseFloat(document.getElementById('shAmount').value);
+      var itObj = (S.get().shopping || []).filter(function (x) { return x.id === id; })[0];
+      var itName = itObj ? DORM.shopping.displayName(itObj) : '';
       S.update(function (s) {
         DORM.shopping.markBought(s, id, buyer, amount > 0 ? amount : 0);
       });
+      // Push the rest of the flat (not the buyer) about the purchase.
+      var buyerName = member(buyer) ? member(buyer).name : '';
+      if (DORM.push && DORM.push.notifyActivity && itName) {
+        DORM.push.notifyActivity({
+          title: t('notif_bought_title'),
+          body: (buyerName ? buyerName + ' ' : '') + t('notif_bought_body') + ' ' + itName +
+            (amount > 0 ? ' · ' + amount + ' ' + (S.get().settings.currency || 'CZK') : ''),
+          excludeName: buyerName, tag: 'purchase'
+        });
+      }
       closeModal();
     },
     'settle': function (el) {
