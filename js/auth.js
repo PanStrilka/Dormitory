@@ -107,6 +107,36 @@
   function updatePassword(password) {
     return client.auth.updateUser({ password: password });
   }
+  // Delete the signed-in user's own account. Prefers the delete-account Edge
+  // Function (removes memberships + profile + the auth user). If that function
+  // isn't deployed, it falls back to removing the user's own memberships (which
+  // RLS allows) so they at least lose access, then reports partial success.
+  function deleteAccount() {
+    var c = DORM.CONFIG;
+    return client.auth.getSession().then(function (r) {
+      var token = r.data.session && r.data.session.access_token;
+      if (!token) return { ok: false, error: 'no-session' };
+      return fetch(c.url.replace(/\/$/, '') + '/functions/v1/delete-account', {
+        method: 'POST',
+        headers: { 'apikey': c.key, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      }).then(function (res) { return res.json().catch(function () { return { ok: false }; }); })
+        .then(function (res) {
+          if (res && res.ok) return { ok: true };
+          // Fallback: at least drop this user's own membership rows.
+          return myMemberships().then(function (ms) {
+            return Promise.all(ms.map(function (m) { return removeMembership(m.id); }))
+              .then(function () { return { ok: true, partial: true }; })
+              .catch(function () { return { ok: false }; });
+          });
+        }).catch(function () {
+          return myMemberships().then(function (ms) {
+            return Promise.all(ms.map(function (m) { return removeMembership(m.id); }))
+              .then(function () { return { ok: true, partial: true }; })
+              .catch(function () { return { ok: false }; });
+          });
+        });
+    });
+  }
   function signOut() { return client.auth.signOut(); }
   function user() {
     return client && client.auth.getUser ? client.auth.getUser() : Promise.resolve({ data: {} });
@@ -235,6 +265,7 @@
     signIn: signIn, verifyOtp: verifyOtp,
     signUpPassword: signUpPassword, signInPassword: signInPassword,
     resetPassword: resetPassword, updatePassword: updatePassword,
+    deleteAccount: deleteAccount,
     signOut: signOut, user: user, me: me,
     ensureProfile: ensureProfile, myProfile: myProfile,
     myMemberships: myMemberships, listCells: listCells, requestJoin: requestJoin,
