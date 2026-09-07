@@ -17,6 +17,7 @@
   var SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
   var client = null;
   var sdkPromise = null;
+  var currentUid = null; // the signed-in user's id — DEVICE-LOCAL, never synced
 
   function enabled() {
     try {
@@ -64,7 +65,9 @@
         });
       }
       return client.auth.getSession().then(function (r) {
-        return r.data.session;
+        var s = r.data.session;
+        if (s && s.user) currentUid = s.user.id;
+        return s;
       });
     });
   }
@@ -143,7 +146,13 @@
   }
 
   // ---- data ops (RLS enforces permissions) ----
-  function me() { return client.auth.getUser().then(function (r) { return r.data.user; }); }
+  function me() {
+    return client.auth.getUser().then(function (r) {
+      var u = r.data.user;
+      if (u) currentUid = u.id;
+      return u;
+    });
+  }
 
   function ensureProfile(name) {
     return me().then(function (u) {
@@ -239,6 +248,10 @@
           if (!r.data || !r.data.data) { setStatus('on'); return; }
           var remoteTs = new Date(r.data.updated_at).getTime();
           if (remoteTs <= lastPushedAt + 500) { setStatus('on'); return; }
+          // `me` (which account I am) is DEVICE-LOCAL. The shared blob carries
+          // whoever wrote it last — never let that change who this device is,
+          // otherwise everyone would see the last person who loaded as "on duty".
+          if (r.data.data.settings && currentUid) r.data.data.settings.me = currentUid;
           // Dedupe: don't re-render every 6s when nothing actually changed.
           var remoteRaw = JSON.stringify(r.data.data);
           if (remoteRaw === JSON.stringify(DORM.store.get()) || remoteRaw === lastAppliedRaw) {

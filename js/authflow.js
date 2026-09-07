@@ -183,8 +183,14 @@
     // transient error can't make you the only member (and thus "always on duty").
     DORM.auth.cellMembers(cellId).then(function (list) {
       var verified = list.filter(function (x) { return x.status === 'verified'; });
+      var isAdmin = current.role === 'cell_admin' || (current.profile && current.profile.is_superadmin);
       DORM.store.update(function (st) {
-        if (verified.length) {
+        // Replace the shared roster only from an authoritative view. An admin
+        // sees everyone; a plain member should only refresh it if their view
+        // isn't SMALLER than what's already shared — so an RLS-limited "just me"
+        // fetch can never shrink the roster and make them the sole member.
+        var have = (st.members || []).length;
+        if (verified.length && (isAdmin || verified.length >= have)) {
           st.members = verified.map(function (x, i) {
             return { id: x.user_id, name: x.display_name || '—', room: x.room || 'A',
               color: COLORS[i % COLORS.length], status: 'verified' };
