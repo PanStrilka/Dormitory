@@ -220,38 +220,73 @@
       '<h2>🛠️ ' + t('auth_admin') + '</h2>' +
       '<button class="btn ghost sm" data-authact="admin-close">✕</button></div>' +
       '<div id="adminBody"><p class="muted">…</p></div></div>');
-    DORM.auth.cellMembers(cellId).then(function (list) {
-      var pending = list.filter(function (x) { return x.status === 'pending'; });
-      var members = list.filter(function (x) { return x.status === 'verified'; });
-      function nm(x) { return esc(x.display_name || (x.profiles && x.profiles.display_name) || '—'); }
-      var html = '';
-      html += '<h3>' + t('verify_pending_title') + ' (' + pending.length + ')</h3>';
-      html += pending.length ? pending.map(function (x) {
-        return '<div class="mrow pend"><span class="pn">' + nm(x) + ' · ' + esc(x.room || '?') + '</span>' +
-          '<button class="btn sm" data-authact="approve" data-id="' + x.id + '">' + t('verify_approve') + '</button>' +
-          '<button class="btn ghost sm" data-authact="reject" data-id="' + x.id + '">' + t('verify_reject') + '</button></div>';
-      }).join('') : '<p class="muted sm">' + t('verify_none') + '</p>';
 
-      html += '<h3 class="mt">' + t('auth_members') + ' (' + members.length + ')</h3>';
-      html += members.map(function (x) {
-        return '<div class="mrow"><span class="pn">' + nm(x) +
-          (x.role === 'cell_admin' ? ' <span class="badge you">admin</span>' : '') + '</span>' +
-          '<select data-authact="room" data-id="' + x.id + '">' +
-          '<option value="A"' + (x.room === 'A' ? ' selected' : '') + '>A</option>' +
-          '<option value="B"' + (x.room === 'B' ? ' selected' : '') + '>B</option></select>' +
-          '<button class="btn ghost sm" data-authact="toggleadmin" data-id="' + x.id + '" data-role="' + x.role + '">' +
-          (x.role === 'cell_admin' ? t('auth_unadmin') : t('auth_makeadmin')) + '</button>' +
-          '<button class="btn ghost sm" data-authact="removemember" data-id="' + x.id + '">🗑</button></div>';
-      }).join('');
+    function nm(x) { return esc(x.display_name || '—'); }
 
-      if (isSuper) {
-        html += '<h3 class="mt">' + t('auth_super') + '</h3>' +
-          '<label class="field"><span>' + t('auth_new_cell') + '</span>' +
-          '<input type="text" id="newCellName" placeholder="Buňka 3"></label>' +
-          '<label class="field"><span>' + t('join_code') + '</span><input type="text" id="newCellCode" placeholder="—"></label>' +
-          '<button class="btn" data-authact="createcell">' + t('auth_create_cell') + '</button>';
+    // Fetch the cell list first so every row can offer a "move to buňka" dropdown.
+    DORM.auth.listCells().then(function (cells) {
+      function cellSel(x) {
+        if (!cells.length) return '';
+        var cid = x.cell_id || cellId;
+        return '<select data-authact="cell" data-id="' + x.id + '" title="' + t('auth_move_cell') + '">' +
+          cells.map(function (c) {
+            return '<option value="' + c.id + '"' + (c.id === cid ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+          }).join('') + '</select>';
       }
-      document.getElementById('adminBody').innerHTML = html;
+      function approveReject(x) {
+        return '<button class="btn sm" data-authact="approve" data-id="' + x.id + '">' + t('verify_approve') + '</button>' +
+          '<button class="btn ghost sm" data-authact="reject" data-id="' + x.id + '">' + t('verify_reject') + '</button>';
+      }
+
+      DORM.auth.cellMembers(cellId).then(function (list) {
+        var pending = list.filter(function (x) { return x.status === 'pending'; });
+        var members = list.filter(function (x) { return x.status === 'verified'; });
+        var html = '';
+        html += '<h3>' + t('verify_pending_title') + ' (' + pending.length + ')</h3>';
+        html += pending.length ? pending.map(function (x) {
+          return '<div class="mrow pend"><span class="pn">' + nm(x) + ' · ' + esc(x.room || '?') + '</span>' +
+            cellSel(x) + approveReject(x) + '</div>';
+        }).join('') : '<p class="muted sm">' + t('verify_none') + '</p>';
+
+        html += '<h3 class="mt">' + t('auth_members') + ' (' + members.length + ')</h3>';
+        html += members.map(function (x) {
+          return '<div class="mrow"><span class="pn">' + nm(x) +
+            (x.role === 'cell_admin' ? ' <span class="badge you">admin</span>' : '') + '</span>' +
+            '<select data-authact="room" data-id="' + x.id + '">' +
+            '<option value="A"' + (x.room === 'A' ? ' selected' : '') + '>A</option>' +
+            '<option value="B"' + (x.room === 'B' ? ' selected' : '') + '>B</option></select>' +
+            cellSel(x) +
+            '<button class="btn ghost sm" data-authact="toggleadmin" data-id="' + x.id + '" data-role="' + x.role + '">' +
+            (x.role === 'cell_admin' ? t('auth_unadmin') : t('auth_makeadmin')) + '</button>' +
+            '<button class="btn ghost sm" data-authact="removemember" data-id="' + x.id + '">🗑</button></div>';
+        }).join('');
+
+        if (isSuper) {
+          html += '<h3 class="mt">' + t('auth_super') + '</h3>' +
+            '<label class="field"><span>' + t('auth_new_cell') + '</span>' +
+            '<input type="text" id="newCellName" placeholder="Buňka 3"></label>' +
+            '<label class="field"><span>' + t('join_code') + '</span><input type="text" id="newCellCode" placeholder="—"></label>' +
+            '<button class="btn" data-authact="createcell">' + t('auth_create_cell') + '</button>';
+        }
+        document.getElementById('adminBody').innerHTML = html;
+
+        // Superadmin: surface pending requests that landed in OTHER cells, so a
+        // roommate who picked the wrong buňka is never lost — move + approve here.
+        if (isSuper) {
+          DORM.auth.allPending().then(function (all) {
+            var other = all.filter(function (x) { return x.cell_id !== cellId; });
+            if (!other.length) return;
+            var oh = '<h3 class="mt">' + t('auth_other_pending') + ' (' + other.length + ')</h3>' +
+              other.map(function (x) {
+                return '<div class="mrow pend"><span class="pn">' + nm(x) + ' · ' + esc(x.room || '?') +
+                  ' · <span class="muted sm">' + esc((x.cells && x.cells.name) || '?') + '</span></span>' +
+                  cellSel(x) + approveReject(x) + '</div>';
+              }).join('');
+            var body = document.getElementById('adminBody');
+            if (body) body.insertAdjacentHTML('afterbegin', oh);
+          });
+        }
+      });
     });
   }
 
@@ -357,8 +392,14 @@
       }
     });
     document.body.addEventListener('change', function (e) {
-      var el = e.target.closest('[data-authact="room"]');
-      if (el) DORM.auth.setMembership(el.getAttribute('data-id'), { room: el.value });
+      var el = e.target.closest('[data-authact="room"], [data-authact="cell"]');
+      if (!el) return;
+      var id = el.getAttribute('data-id');
+      if (el.getAttribute('data-authact') === 'room') {
+        DORM.auth.setMembership(id, { room: el.value });
+      } else { // move to another buňka, then refresh the panel
+        DORM.auth.setMembership(id, { cell_id: el.value }).then(renderAdmin);
+      }
     });
   }
 

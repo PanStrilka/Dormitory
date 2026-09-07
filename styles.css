@@ -500,3 +500,8 @@ body.auth-screen .install-bar { bottom: calc(16px + env(safe-area-inset-bottom, 
 /* Disable double-tap-to-zoom (keeps pinch-zoom + scrolling). */
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 button, .btn, .tab, .seg, label.task, .chip { touch-action: manipulation; }
+
+/* admin rows get busier (room + cell + buttons) — let them wrap neatly */
+.auth-card .mrow { flex-wrap: wrap; }
+.auth-card .mrow .pn { flex: 1 1 100%; }
+.auth-card .mrow select { max-width: 140px; }

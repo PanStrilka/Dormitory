@@ -185,10 +185,23 @@
     // at auth.users), so embedding errors out and returns nothing. The name is
     // already stored on the membership row (display_name) at join time.
     return client.from('memberships')
-      .select('id, user_id, room, role, status, display_name')
+      .select('id, user_id, room, role, status, display_name, cell_id')
       .eq('cell_id', cellId)
       .then(function (r) {
         if (r.error) { console.error('cellMembers', r.error.message); return []; }
+        return r.data || [];
+      });
+  }
+
+  // All pending join requests across every cell (RLS lets a superadmin see all;
+  // a cell admin only sees their own). Used to catch people who joined the wrong
+  // buňka. cells(name) embed is fine — memberships.cell_id -> cells has an FK.
+  function allPending() {
+    return client.from('memberships')
+      .select('id, user_id, room, role, status, display_name, cell_id, cells(name)')
+      .eq('status', 'pending')
+      .then(function (r) {
+        if (r.error) { console.error('allPending', r.error.message); return []; }
         return r.data || [];
       });
   }
@@ -275,7 +288,8 @@
     signOut: signOut, user: user, me: me,
     ensureProfile: ensureProfile, myProfile: myProfile,
     myMemberships: myMemberships, listCells: listCells, requestJoin: requestJoin,
-    cellMembers: cellMembers, setMembership: setMembership, removeMembership: removeMembership,
+    cellMembers: cellMembers, allPending: allPending,
+    setMembership: setMembership, removeMembership: removeMembership,
     createCell: createCell, cellSync: cellSync,
     hasClient: function () { return !!client; }
   };
