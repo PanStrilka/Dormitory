@@ -194,9 +194,9 @@
     // at auth.users), so embedding errors out and returns nothing. The name is
     // already stored on the membership row (display_name) at join time.
     return client.from('memberships')
-      .select('id, user_id, room, role, status, display_name, cell_id')
+      .select('id, user_id, room, role, status, display_name, cell_id, created_at')
       .eq('cell_id', cellId)
-      .order('user_id') // stable order across devices (the rota picks by position)
+      .order('created_at') // JOIN ORDER: newcomers append to the end of the queue
       .then(function (r) {
         if (r.error) { console.error('cellMembers', r.error.message); return []; }
         return r.data || [];

@@ -796,6 +796,12 @@
       '<label class="field"><span>' + t('set_monthly_reward') + '</span>' +
       '<input type="number" min="0" max="100000" data-act="monthlyReward" style="max-width:140px" value="' +
       esc(st.settings.monthlyReward != null ? st.settings.monthlyReward : 100) + '"></label>' +
+      '<label class="field"><span>' + t('set_rotation') + '</span>' +
+      '<select data-act="rotationMode">' +
+      '<option value="simple"' + ((st.settings.rotationMode || 'simple') === 'simple' ? ' selected' : '') + '>' + t('rotation_simple') + '</option>' +
+      '<option value="rooms"' + (st.settings.rotationMode === 'rooms' ? ' selected' : '') + '>' + t('rotation_rooms') + '</option>' +
+      '</select></label>' +
+      '<p class="muted sm">' + t('rotation_hint') + '</p>' +
       '<label class="field"><span>' + t('set_language') + '</span>' +
       '<select data-act="lang"><option value="cs"' + (DORM.i18n.getLang() === 'cs' ? ' selected' : '') +
       '>Čeština</option><option value="en"' + (DORM.i18n.getLang() === 'en' ? ' selected' : '') +
@@ -1215,6 +1221,8 @@
       } else if (el.getAttribute('data-act') === 'monthlyReward') {
         var rw = Math.max(0, Math.min(100000, parseInt(el.value, 10) || 0));
         S.update(function (s) { s.settings.monthlyReward = rw; });
+      } else if (el.getAttribute('data-act') === 'rotationMode') {
+        S.update(function (s) { s.settings.rotationMode = el.value === 'rooms' ? 'rooms' : 'simple'; });
       } else if (el.getAttribute('data-act') === 'lang') {
         DORM.i18n.setLang(el.value);
         S.update(function (s) { s.settings.lang = el.value; });

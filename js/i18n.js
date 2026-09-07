@@ -136,6 +136,11 @@
       role_ROOM_B: 'Pokoj 2',
       role_KITCHEN: 'Kuchyňka + koš',
       role_BATHROOM: 'Koupelna + WC',
+      role_ALL: 'Služba tento týden',
+      set_rotation: 'Typ služby',
+      rotation_simple: 'Jeden po druhém (1→2→3→4)',
+      rotation_rooms: '4 role (pokoje + kuchyň + koupelna)',
+      rotation_hint: 'Jednoduše: každý týden má službu jeden člověk (dělá vše) a střídají se po pořadí; nový přibyde na konec fronty.',
 
       // frequencies
       freq_daily: 'Denně',
@@ -528,6 +533,11 @@
       role_ROOM_B: 'Room 2',
       role_KITCHEN: 'Kitchen + trash',
       role_BATHROOM: 'Bathroom + WC',
+      role_ALL: 'On duty this week',
+      set_rotation: 'Duty type',
+      rotation_simple: 'One after another (1→2→3→4)',
+      rotation_rooms: '4 roles (rooms + kitchen + bathroom)',
+      rotation_hint: 'Simple: each week one person is on duty (does everything) and they take turns in order; a newcomer joins the end of the queue.',
 
       freq_daily: 'Daily',
       freq_weekly: 'Weekly',
