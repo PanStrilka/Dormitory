@@ -15,6 +15,14 @@
   function membersOf(state, scope) {
     // Only verified members take part in the rota.
     var list = state.members.filter(function (m) { return m.status === 'verified'; });
+    // CRITICAL: sort by a stable key (id) so the rotation is identical on every
+    // device. The member list can arrive in different orders per device (e.g.
+    // PostgREST returns rows unordered), and the rota picks people BY POSITION
+    // (pool[weekIdx mod N]) — without a fixed order, each phone would show a
+    // different person on duty.
+    list = list.slice().sort(function (a, b) {
+      return String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0;
+    });
     if (scope === 'roomA') return list.filter(function (m) { return m.room === 'A'; });
     if (scope === 'roomB') return list.filter(function (m) { return m.room === 'B'; });
     return list; // all verified
