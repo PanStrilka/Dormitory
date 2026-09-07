@@ -204,6 +204,8 @@
   function renderAdmin() {
     var cellId = current.cellId;
     var isSuper = current.profile && current.profile.is_superadmin;
+    // Admin panel is for cell admins / superadmin only — anyone else is bounced.
+    if (!(current.role === 'cell_admin' || isSuper)) { appMode(); DORM.ui.render(); return; }
     screen('<div class="auth-card wide"><div class="row between">' +
       '<h2>🛠️ ' + t('auth_admin') + '</h2>' +
       '<button class="btn ghost sm" data-authact="admin-close">✕</button></div>' +
