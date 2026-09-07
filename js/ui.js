@@ -740,8 +740,10 @@
         '<p class="muted sm">' + (isAdmin ? t('auth_role_admin') : t('auth_role_member')) + '</p>' +
         '<div class="row gap">' +
         (isAdmin ? '<button class="btn" data-act="auth-admin">🛠️ ' + t('auth_open_admin') + '</button>' : '') +
-        '<button class="btn ghost" data-act="auth-signout">' + t('auth_signout') + '</button>' +
-        '</div></section>';
+        '<button class="btn ghost" data-act="auth-signout">🚪 ' + t('auth_signout') + '</button>' +
+        '</div>' +
+        '<button class="btn danger sm" data-act="auth-delete" style="margin-top:10px">🗑 ' +
+        t('auth_delete') + '</button></section>';
     }
 
     // Old honor-based pending list (only when NOT in auth mode).
@@ -1387,6 +1389,23 @@
     'auth-admin': function () { if (DORM.authflow) DORM.authflow.renderAdmin(); },
     'auth-signout': function () {
       if (DORM.auth) DORM.auth.signOut().then(function () { location.reload(); });
+    },
+    'auth-delete': function () {
+      openModal('<h3>🗑 ' + t('auth_delete') + '</h3>' +
+        '<p class="muted">' + t('auth_delete_confirm') + '</p>' +
+        '<div class="row gap end">' +
+        '<button class="btn ghost" data-act="modal-close">' + t('cancel') + '</button>' +
+        '<button class="btn danger" data-act="auth-delete-go">' + t('auth_delete_yes') + '</button></div>');
+    },
+    'auth-delete-go': function () {
+      closeModal();
+      toast(t('auth_delete_working'));
+      if (!DORM.auth) return;
+      DORM.auth.deleteAccount().then(function () {
+        DORM.auth.signOut().then(function () { location.reload(); });
+      }).catch(function () {
+        DORM.auth.signOut().then(function () { location.reload(); });
+      });
     },
     'modal-close': function () { closeModal(); },
     'tour-next': function () { openTour(tourStep + 1); },
