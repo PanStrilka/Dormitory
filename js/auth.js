@@ -284,8 +284,14 @@
       push: function (state) {
         if (applying) return;
         lastPushedAt = Date.now();
+        // `me` (which account this device is) must NEVER enter the shared blob —
+        // otherwise whoever wrote last would set everyone's "on duty" person.
+        // Clone and blank it before uploading.
+        var data;
+        try { data = JSON.parse(JSON.stringify(state)); } catch (e) { data = state; }
+        if (data && data.settings) data.settings.me = null;
         client.from('cell_state').upsert(
-          { cell_id: cellId, data: state, updated_at: new Date().toISOString() },
+          { cell_id: cellId, data: data, updated_at: new Date().toISOString() },
           { onConflict: 'cell_id' }
         ).then(function (r) { setStatus(r.error ? 'error' : 'on'); })
           .catch(function () { setStatus('error'); });

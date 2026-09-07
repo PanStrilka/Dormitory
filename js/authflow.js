@@ -185,12 +185,13 @@
       var verified = list.filter(function (x) { return x.status === 'verified'; });
       var isAdmin = current.role === 'cell_admin' || (current.profile && current.profile.is_superadmin);
       DORM.store.update(function (st) {
-        // Replace the shared roster only from an authoritative view. An admin
-        // sees everyone; a plain member should only refresh it if their view
-        // isn't SMALLER than what's already shared — so an RLS-limited "just me"
-        // fetch can never shrink the roster and make them the sole member.
-        var have = (st.members || []).length;
-        if (verified.length && (isAdmin || verified.length >= have)) {
+        // Write the shared roster only from an AUTHORITATIVE view: an admin (sees
+        // everyone), or any view that actually contains more than one person
+        // (i.e. the RLS policy is letting this member see the whole cell). A
+        // plain member whose RLS-limited fetch returns only themselves must
+        // NEVER write it — otherwise, via a load-time race, they'd push a
+        // one-person roster and make themselves everyone's on-duty person.
+        if (isAdmin || verified.length > 1) {
           st.members = verified.map(function (x, i) {
             return { id: x.user_id, name: x.display_name || '—', room: x.room || 'A',
               color: COLORS[i % COLORS.length], status: 'verified' };
