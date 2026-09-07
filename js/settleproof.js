@@ -15,7 +15,8 @@
   'use strict';
 
   function cfg() {
-    var s = DORM.store.get().settings.sync;
+    var st = DORM.store.get().settings;
+    var s = st.sync || (st.syncDisabled ? null : (DORM.defaultSync && DORM.defaultSync()));
     return (s && s.url && s.key) ? { url: s.url.replace(/\/$/, ''), key: s.key } : null;
   }
   function hdr(c, extra) {
