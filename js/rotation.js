@@ -15,17 +15,20 @@
   function membersOf(state, scope) {
     // Only verified members take part in the rota.
     var list = state.members.filter(function (m) { return m.status === 'verified'; });
-    // CRITICAL: sort by a stable key (id) so the rotation is identical on every
-    // device. The member list can arrive in different orders per device (e.g.
-    // PostgREST returns rows unordered), and the rota picks people BY POSITION
-    // (pool[weekIdx mod N]) — without a fixed order, each phone would show a
-    // different person on duty.
+    // Sort by JOIN ORDER (the `order` field, set from when each person joined),
+    // falling back to id. This makes the queue 1→2→3→4 and appends newcomers at
+    // the end, and — crucially — is identical on every device (the list can
+    // arrive in different orders per phone, and the rota picks people BY
+    // POSITION, so a fixed order is required).
     list = list.slice().sort(function (a, b) {
+      var ao = typeof a.order === 'number' ? a.order : null;
+      var bo = typeof b.order === 'number' ? b.order : null;
+      if (ao !== null && bo !== null && ao !== bo) return ao - bo;
       return String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0;
     });
     if (scope === 'roomA') return list.filter(function (m) { return m.room === 'A'; });
     if (scope === 'roomB') return list.filter(function (m) { return m.room === 'B'; });
-    return list; // all verified
+    return list; // all verified, in join order
   }
 
   function mod(i, n) { return ((i % n) + n) % n; }
@@ -38,6 +41,13 @@
 
   /** Deterministic assignee before any manual override. */
   function baseAssignee(state, roleId, weekIdx) {
+    // Simple mode: one weekly duty holder, round-robin through the whole cell in
+    // join order. Newcomers append, so 2 people alternate, a 3rd becomes 3rd, etc.
+    if (roleId === 'ALL') {
+      var q = membersOf(state, 'all');
+      return q.length ? q[mod(weekIdx, q.length)] : null;
+    }
+
     var role = DORM.duties.ROLES.filter(function (r) { return r.id === roleId; })[0];
     if (!role) return null;
 
@@ -75,7 +85,7 @@
   /** Full roster for one week: [{ role, member, isMonthlyWeek }]. */
   function rosterForWeek(state, date) {
     var monthly = DORM.store.isMonthlyWeek(date);
-    return DORM.duties.ROLES.map(function (role) {
+    return DORM.duties.activeRoles(state.settings).map(function (role) {
       return {
         roleId: role.id,
         icon: role.icon,

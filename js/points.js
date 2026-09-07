@@ -41,13 +41,12 @@
       var roleId = k.split('|')[1];
       var items = c.items || {};
       var mult = DORM.store.isMonthlyWeek(weekDateFromKey(k.split('|')[0])) ? MONTHLY_MULT : 1;
+      var role = DORM.duties.ROLES.filter(function (r) { return r.id === roleId; })[0];
       DORM.duties.TASKS.forEach(function (t) {
-        if (items[t.id]) {
-          // only count if the task belongs to this role's zone
-          var role = DORM.duties.ROLES.filter(function (r) { return r.id === roleId; })[0];
-          if (role && role.zone === t.zone) {
-            out[c.by] += (DORM.duties.POINTS[t.freq] || 0) * mult;
-          }
+        if (!items[t.id]) return;
+        // 'ALL' (simple mode) credits every task; a room role only its own zone.
+        if (roleId === 'ALL' || (role && role.zone === t.zone)) {
+          out[c.by] += (DORM.duties.POINTS[t.freq] || 0) * mult;
         }
       });
     });
@@ -125,11 +124,10 @@
       if (!c || !c.by || out[c.by] == null || !inMonth(c.ts)) return;
       var roleId = k.split('|')[1];
       var mult = DORM.store.isMonthlyWeek(weekDateFromKey(k.split('|')[0])) ? MONTHLY_MULT : 1;
+      var role = DORM.duties.ROLES.filter(function (r) { return r.id === roleId; })[0];
       DORM.duties.TASKS.forEach(function (t) {
-        if ((c.items || {})[t.id]) {
-          var role = DORM.duties.ROLES.filter(function (r) { return r.id === roleId; })[0];
-          if (role && role.zone === t.zone) out[c.by] += (DORM.duties.POINTS[t.freq] || 0) * mult;
-        }
+        if (!(c.items || {})[t.id]) return;
+        if (roleId === 'ALL' || (role && role.zone === t.zone)) out[c.by] += (DORM.duties.POINTS[t.freq] || 0) * mult;
       });
     });
     (state.purchases || []).forEach(function (p) {

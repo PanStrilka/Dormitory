@@ -194,7 +194,7 @@
         if (isAdmin || verified.length > 1) {
           st.members = verified.map(function (x, i) {
             return { id: x.user_id, name: x.display_name || '—', room: x.room || 'A',
-              color: COLORS[i % COLORS.length], status: 'verified' };
+              color: COLORS[i % COLORS.length], status: 'verified', order: i };
           });
         }
       });
@@ -315,7 +315,7 @@
       DORM.store.update(function (st) {
         st.members = verified.map(function (x, i) {
           return { id: x.user_id, name: x.display_name || '—', room: x.room || 'A',
-            color: COLORS[i % COLORS.length], status: 'verified' };
+            color: COLORS[i % COLORS.length], status: 'verified', order: i };
         });
       });
     }).catch(function () {});

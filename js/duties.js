@@ -93,13 +93,22 @@
       en: 'Thoroughly wash the bathroom and WC floors and tiles, disinfect' }
   ];
 
-  // The four weekly duty roles.
+  // The four weekly duty roles (room-based mode).
   var ROLES = [
     { id: 'ROOM_A', zone: 'ROOM',     scope: 'roomA', icon: '🛏️' },
     { id: 'ROOM_B', zone: 'ROOM',     scope: 'roomB', icon: '🛏️' },
     { id: 'KITCHEN', zone: 'KITCHEN', scope: 'all',   icon: '🍳' },
     { id: 'BATHROOM', zone: 'BATHROOM', scope: 'all', icon: '🚿' }
   ];
+
+  // Simple mode: ONE weekly duty holder who does everything. People take turns
+  // in join order (1→2→3→4…), and a newcomer is appended to the end of the queue.
+  var ALL_ROLE = { id: 'ALL', zone: 'ALL', scope: 'roundrobin', icon: '🧹' };
+
+  // Which roles are active depends on the cell's rotation mode (default simple).
+  function activeRoles(settings) {
+    return (settings && settings.rotationMode === 'rooms') ? ROLES : [ALL_ROLE];
+  }
 
   // Points earned per completed task, by frequency.
   var POINTS = { daily: 1, weekly: 4, monthly: 8 };
@@ -110,6 +119,12 @@
    * ISO week that contains the 1st of the month (the "monthly week").
    */
   function tasksForRole(roleId, isMonthlyWeek) {
+    // 'ALL' (simple mode) = every task, regardless of zone.
+    if (roleId === 'ALL') {
+      return TASKS.filter(function (t) {
+        return t.freq === 'monthly' ? !!isMonthlyWeek : true;
+      });
+    }
     var role = ROLES.filter(function (r) { return r.id === roleId; })[0];
     if (!role) return [];
     return TASKS.filter(function (t) {
@@ -129,6 +144,8 @@
   DORM.duties = {
     TASKS: TASKS,
     ROLES: ROLES,
+    ALL_ROLE: ALL_ROLE,
+    activeRoles: activeRoles,
     POINTS: POINTS,
     tasksForRole: tasksForRole,
     maxPointsForRole: maxPointsForRole
