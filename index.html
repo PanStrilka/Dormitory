@@ -76,6 +76,12 @@
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('sw.js').catch(function () {});
       });
+      // When a new service worker takes control (after a deploy), reload once so
+      // the page immediately runs the new code — no manual "reload twice".
+      var reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (reloaded) return; reloaded = true; location.reload();
+      });
     }
   </script>
 </body>
