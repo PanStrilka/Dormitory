@@ -27,15 +27,25 @@
   }
   function appMode() { document.body.classList.remove('auth-screen'); }
 
+  // A recovery link lands back here with type=recovery in the URL (hash for the
+  // implicit flow, query as a fallback). detectSessionInUrl has already set the
+  // temporary session by the time init() resolves, so we just show the form.
+  function isRecoveryUrl() {
+    var h = location.hash || '', q = location.search || '';
+    return /(^|[#&?])type=recovery(&|$)/.test(h) || /[?&]type=recovery(&|$)/.test(q);
+  }
+
   function start() {
     mainEl = document.getElementById('main');
     modalEl = document.getElementById('modal');
+    if (isRecoveryUrl()) recovering = true; // decide before any async event fires
     screen('<div class="auth-card"><div class="auth-logo">🧽</div><p class="muted">…</p></div>');
     DORM.auth.init().then(function (session) {
       DORM.auth.onChange(function (s, evt) {
         if (evt === 'PASSWORD_RECOVERY') { recovering = true; renderSetPassword(); return; }
         if (!recovering) route();
       });
+      if (recovering) { renderSetPassword(); return; }
       route();
     }).catch(function (e) {
       screen('<div class="auth-card"><div class="auth-logo">🧽</div>' +
@@ -291,6 +301,8 @@
         DORM.auth.updatePassword(np).then(function (r) {
           if (r && r.error) { msg('authMsg', r.error.message || t('auth_err')); return; }
           recovering = false;
+          // Drop the recovery token from the URL so a reload doesn't reopen this.
+          try { history.replaceState(null, '', location.pathname); } catch (e2) {}
           route();
         }).catch(function () { msg('authMsg', t('auth_err')); });
       } else if (act === 'savename') {
