@@ -45,7 +45,15 @@
     // join order. Newcomers append, so 2 people alternate, a 3rd becomes 3rd, etc.
     if (roleId === 'ALL') {
       var q = membersOf(state, 'all');
-      return q.length ? q[mod(weekIdx, q.length)] : null;
+      if (!q.length) return null;
+      // Optionally rotate the queue so a chosen person is first (week 0).
+      var startId = state.settings && state.settings.rotationStartId;
+      if (startId) {
+        var si = -1;
+        for (var i = 0; i < q.length; i++) { if (q[i].id === startId) { si = i; break; } }
+        if (si > 0) q = q.slice(si).concat(q.slice(0, si));
+      }
+      return q[mod(weekIdx, q.length)];
     }
 
     var role = DORM.duties.ROLES.filter(function (r) { return r.id === roleId; })[0];
