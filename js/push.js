@@ -92,5 +92,30 @@
     });
   }
 
-  DORM.push = { supported: supported, status: status, enable: enable };
+  /**
+   * Fire a push to everyone except the actor (fire-and-forget). The client
+   * composes the localised title/body; the notify-activity Edge Function fans
+   * it out. Silently no-ops when sync isn't configured.
+   *   opts: { title, body, excludeName, tag, url }
+   */
+  function notifyActivity(opts) {
+    opts = opts || {};
+    var st = DORM.store.get();
+    var sync = st.settings.sync ||
+      (st.settings.syncDisabled ? null : (DORM.defaultSync && DORM.defaultSync()));
+    if (!sync || !sync.url || !sync.key || !opts.body) return Promise.resolve(false);
+    return fetch(sync.url.replace(/\/$/, '') + '/functions/v1/notify-activity', {
+      method: 'POST',
+      headers: {
+        'apikey': sync.key, 'Authorization': 'Bearer ' + sync.key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: opts.title || 'Bulka', body: opts.body,
+        exclude_name: opts.excludeName || '', tag: opts.tag || 'activity', url: opts.url || './'
+      })
+    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+
+  DORM.push = { supported: supported, status: status, enable: enable, notifyActivity: notifyActivity };
 })(window.DORM = window.DORM || {});

@@ -96,8 +96,13 @@
    - `VAPID_SUBJECT` = `mailto:твоя@пошта`
 3. Розгорни функцію **[`supabase/functions/notify-duty/index.ts`](../supabase/functions/notify-duty/index.ts)**
    (Edge Functions → Deploy a new function, назва `notify-duty`).
+   А також **[`supabase/functions/notify-activity/index.ts`](../supabase/functions/notify-activity/index.ts)**
+   (назва `notify-activity`) — це пуші про **нові покупки та коментарі**
+   (ті самі VAPID-секрети, нічого додавати не треба).
 4. У застосунку: **Nastavení → Oznámení** → встав **публічний** VAPID-ключ →
    кожен натискає «🔔 Zapnout oznámení na tomto zařízení».
+   Далі: коли хтось позначає покупку або пише коментар, решта отримують пуш
+   (сам автор — ні). Нічого планувати не треба, це миттєво.
 5. **Розклад** (щопонеділка о 8:00). У SQL Editor (потрібні розширення `pg_cron`
    і `pg_net`, увімкни їх у Database → Extensions):
    ```sql

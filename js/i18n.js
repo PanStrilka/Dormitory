@@ -353,7 +353,11 @@
 
       // notifications (web push)
       set_notify: 'Oznámení',
-      notify_hint: 'Dostávej upozornění, když máš tento týden službu.',
+      notify_hint: 'Dostávej upozornění: tvoje služba, nové nákupy a komentáře.',
+      notif_comment_title: '💬 Nový komentář',
+      notif_comment_body: 'okomentoval(a) nákup',
+      notif_bought_title: '🛒 Nový nákup',
+      notif_bought_body: 'koupil(a)',
       install_title: 'Instalace aplikace',
       install_prompt: 'Nainstaluj Bulku na plochu — otvírá se jako aplikace a funguje i offline.',
       install_btn: 'Nainstalovat',
@@ -732,7 +736,11 @@
 
       // notifications (web push)
       set_notify: 'Notifications',
-      notify_hint: 'Get a heads-up when it is your turn this week.',
+      notify_hint: 'Get alerts: your duty, new purchases and comments.',
+      notif_comment_title: '💬 New comment',
+      notif_comment_body: 'commented on a purchase',
+      notif_bought_title: '🛒 New purchase',
+      notif_bought_body: 'bought',
       install_title: 'Install the app',
       install_prompt: 'Install Bulka on your home screen — it opens like an app and works offline.',
       install_btn: 'Install',
