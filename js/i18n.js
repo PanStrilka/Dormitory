@@ -141,6 +141,8 @@
       rotation_simple: 'Jeden po druhém (1→2→3→4)',
       rotation_rooms: '4 role (pokoje + kuchyň + koupelna)',
       rotation_hint: 'Jednoduše: každý týden má službu jeden člověk (dělá vše) a střídají se po pořadí; nový přibyde na konec fronty.',
+      rotation_start_me: 'Začít frontu od tohoto týdne (já první)',
+      rotation_start_done: 'Hotovo — tento týden začínáš ty ✅',
 
       // frequencies
       freq_daily: 'Denně',
@@ -538,6 +540,8 @@
       rotation_simple: 'One after another (1→2→3→4)',
       rotation_rooms: '4 roles (rooms + kitchen + bathroom)',
       rotation_hint: 'Simple: each week one person is on duty (does everything) and they take turns in order; a newcomer joins the end of the queue.',
+      rotation_start_me: 'Start the queue from this week (me first)',
+      rotation_start_done: 'Done — you start this week ✅',
 
       freq_daily: 'Daily',
       freq_weekly: 'Weekly',

@@ -802,6 +802,7 @@
       '<option value="rooms"' + (st.settings.rotationMode === 'rooms' ? ' selected' : '') + '>' + t('rotation_rooms') + '</option>' +
       '</select></label>' +
       '<p class="muted sm">' + t('rotation_hint') + '</p>' +
+      '<button class="btn ghost sm" data-act="rotation-start-me">▶️ ' + t('rotation_start_me') + '</button>' +
       '<label class="field"><span>' + t('set_language') + '</span>' +
       '<select data-act="lang"><option value="cs"' + (DORM.i18n.getLang() === 'cs' ? ' selected' : '') +
       '>Čeština</option><option value="en"' + (DORM.i18n.getLang() === 'en' ? ' selected' : '') +
@@ -1388,6 +1389,14 @@
 
   var actions = {
     'goto-settings': function () { currentTab = 'profile'; profileSub = 'settings'; render(); },
+    'rotation-start-me': function () {
+      // Make the current week week-0 and put me first in the queue.
+      var mon = DORM.store.mondayOf(new Date());
+      var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+      var iso = mon.getFullYear() + '-' + p2(mon.getMonth() + 1) + '-' + p2(mon.getDate());
+      S.update(function (s) { s.settings.startDate = iso; s.settings.rotationStartId = s.settings.me; });
+      toast(t('rotation_start_done'));
+    },
     'install-app': function () {
       if (!DORM.install) return;
       var r = DORM.install.show(true); // force: show even if previously dismissed

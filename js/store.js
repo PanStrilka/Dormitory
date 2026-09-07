@@ -28,7 +28,8 @@
         proof: 'off',      // photo proof for check-off: 'off' | 'weekly' (weekly+monthly) | 'all'
         proofRetentionDays: 7, // proof photos are auto-deleted after this many days
         monthlyReward: 100, // symbolic reward (in currency) for the month's top contributor
-        rotationMode: 'simple' // 'simple' = one weekly duty holder in turn; 'rooms' = 4 room/shared roles
+        rotationMode: 'simple', // 'simple' = one weekly duty holder in turn; 'rooms' = 4 room/shared roles
+        rotationStartId: null // simple mode: member who is first in the queue (else join order)
       },
       members: [],            // { id, name, room: 'A'|'B', color }
       overrides: {},          // "2026-W36|KITCHEN" -> memberId (manual/swap assignment)
