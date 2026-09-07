@@ -32,7 +32,10 @@
   }
 
   function authRedirect() {
-    return location.origin + location.pathname + '?auth=1';
+    // Accounts mode is the default now, so no query flag is needed. Keeping the
+    // redirect to the bare page also makes Supabase's redirect-URL allow-list
+    // matching trivial (just the Site URL).
+    return location.origin + location.pathname;
   }
 
   function loadSDK() {
@@ -54,7 +57,10 @@
     return loadSDK().then(function (sb) {
       if (!client) {
         client = sb.createClient(c.url, c.key, {
-          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+          // Implicit flow puts the recovery/login tokens in the URL hash, which
+          // detectSessionInUrl reads on load — deterministic for our recovery
+          // detection (type=recovery in the hash).
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
         });
       }
       return client.auth.getSession().then(function (r) {
